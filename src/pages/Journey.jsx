@@ -88,13 +88,34 @@ export default function Journey() {
     return null;
   }
 
+  const savedIds = profile?.saved_lessons || [];
+  const isLessonSaved = activeLesson ? savedIds.includes(activeLesson.id) : false;
+
+  const toggleSaveLesson = async () => {
+    if (!profile || !activeLesson) return;
+    const updated = isLessonSaved
+      ? savedIds.filter(id => id !== activeLesson.id)
+      : [...savedIds, activeLesson.id];
+    await base44.entities.UserProfile.update(profile.id, { saved_lessons: updated });
+    queryClient.invalidateQueries({ queryKey: ['userProfile'] });
+  };
+
   // Lesson reading view
   if (activeLesson) {
     return (
       <div className="min-h-screen max-w-lg mx-auto px-5 pt-12 pb-28">
-        <button onClick={() => setActiveLesson(null)} className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
-          <ArrowLeft className="w-4 h-4" /> Back
-        </button>
+        <div className="flex items-center justify-between mb-6">
+          <button onClick={() => setActiveLesson(null)} className="flex items-center gap-2 text-sm text-muted-foreground">
+            <ArrowLeft className="w-4 h-4" /> Back
+          </button>
+          <button
+            onClick={toggleSaveLesson}
+            className="p-2 rounded-full hover:bg-muted transition-all"
+            title={isLessonSaved ? 'Remove from saved' : 'Save lesson'}
+          >
+            <Heart className={cn("w-5 h-5 transition-all", isLessonSaved ? "fill-foreground text-foreground" : "text-muted-foreground")} />
+          </button>
+        </div>
         <div className="flex items-center gap-2 mb-3">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-muted text-xs font-medium">
             {journey.icon} {journey.label}
