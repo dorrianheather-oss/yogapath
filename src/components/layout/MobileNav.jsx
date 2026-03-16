@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, BookOpen, Dumbbell, LayoutGrid, Trophy } from 'lucide-react';
+import { Home, BookOpen, Dumbbell, LayoutGrid, Heart } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
@@ -8,7 +8,7 @@ const navItems = [
   { path: '/Lessons', icon: BookOpen, label: 'Learn' },
   { path: '/PoseLibrary', icon: Dumbbell, label: 'Poses' },
   { path: '/ClassBuilder', icon: LayoutGrid, label: 'Build' },
-  { path: '/Progress', icon: Trophy, label: 'Progress' },
+  { path: '/Library', icon: Heart, label: 'Saved' },
 ];
 
 export default function MobileNav() {
@@ -18,7 +18,7 @@ export default function MobileNav() {
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-xl border-t border-border">
       <div className="flex justify-around items-center h-16 max-w-lg mx-auto px-2">
         {navItems.map(({ path, icon: Icon, label }) => {
-          const isActive = location.pathname === path;
+          const isActive = location.pathname === path || (path === '/Library' && location.pathname === '/Library');
           return (
             <Link
               key={path}
@@ -30,7 +30,11 @@ export default function MobileNav() {
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
-              <Icon className={cn("w-5 h-5", isActive && "stroke-[2.5px]")} />
+              <Icon className={cn(
+                "w-5 h-5",
+                isActive && "stroke-[2.5px]",
+                path === '/Library' && isActive && "fill-current"
+              )} />
               <span className="text-[10px] font-medium">{label}</span>
               {isActive && (
                 <div className="w-1 h-1 rounded-full bg-primary mt-0.5" />
