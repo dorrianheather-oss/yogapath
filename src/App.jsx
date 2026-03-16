@@ -47,12 +47,14 @@ const AuthenticatedApp = () => {
       <Route path="/Onboarding" element={<Onboarding />} />
       <Route element={<AppLayout />}>
         <Route path="/Dashboard" element={<Dashboard />} />
-        <Route path="/Lessons" element={<Lessons />} />
+        <Route path="/Learn" element={<Learn />} />
+        <Route path="/Lesson/:lessonId" element={<LessonPlayer />} />
         <Route path="/PoseLibrary" element={<PoseLibrary />} />
         <Route path="/ClassBuilder" element={<ClassBuilder />} />
         <Route path="/Progress" element={<Progress />} />
         <Route path="/Library" element={<Library />} />
         <Route path="/Journey/:journeyId" element={<Journey />} />
+        <Route path="/Admin" element={<Admin />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>
