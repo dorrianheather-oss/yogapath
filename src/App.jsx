@@ -13,6 +13,7 @@ import PoseLibrary from './pages/PoseLibrary';
 import ClassBuilder from './pages/ClassBuilder';
 import Progress from './pages/Progress';
 import Journey from './pages/Journey';
+import Library from './pages/Library';
 import AppLayout from './components/layout/AppLayout';
 
 const AuthenticatedApp = () => {
@@ -48,6 +49,7 @@ const AuthenticatedApp = () => {
         <Route path="/PoseLibrary" element={<PoseLibrary />} />
         <Route path="/ClassBuilder" element={<ClassBuilder />} />
         <Route path="/Progress" element={<Progress />} />
+        <Route path="/Library" element={<Library />} />
         <Route path="/Journey/:journeyId" element={<Journey />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
