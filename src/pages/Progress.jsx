@@ -29,10 +29,10 @@ export default function Progress() {
   });
 
   const statCards = [
-    { label: 'Total XP', value: profile?.total_xp || 0, icon: Star, color: 'text-amber-500 bg-amber-50' },
-    { label: 'Streak', value: `${profile?.streak_days || 0} days`, icon: Flame, color: 'text-orange-500 bg-orange-50' },
-    { label: 'Lessons', value: profile?.total_lessons_completed || 0, icon: BookOpen, color: 'text-blue-500 bg-blue-50' },
-    { label: 'Achievements', value: earnedAchievements.length, icon: Trophy, color: 'text-purple-500 bg-purple-50' },
+    { label: 'Total XP', value: profile?.total_xp || 0, icon: Star, color: 'text-foreground bg-muted' },
+    { label: 'Streak', value: `${profile?.streak_days || 0} days`, icon: Flame, color: 'text-foreground bg-muted' },
+    { label: 'Lessons', value: profile?.total_lessons_completed || 0, icon: BookOpen, color: 'text-foreground bg-muted' },
+    { label: 'Achievements', value: earnedAchievements.length, icon: Trophy, color: 'text-foreground bg-muted' },
   ];
 
   return (

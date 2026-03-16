@@ -20,7 +20,7 @@ export default function DailyBoard({ completedCount = 0, streak = 0 }) {
           <h2 className="text-lg font-bold">Daily Board</h2>
           <p className="text-xs text-muted-foreground">~{totalMinutes} min today</p>
         </div>
-        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange-50 text-orange-600">
+        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted text-foreground">
           <Flame className="w-4 h-4" />
           <span className="text-sm font-bold">{streak}</span>
         </div>

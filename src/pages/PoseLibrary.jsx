@@ -105,12 +105,12 @@ export default function PoseLibrary() {
 
         {/* Teaching cues */}
         {selectedPose.teaching_cues?.length > 0 && (
-          <div className="mb-5 p-4 rounded-2xl bg-sage-50 border border-sage-200">
-            <h3 className="text-xs font-bold uppercase text-sage-700 tracking-wider mb-2">🗣️ Teaching Cues</h3>
-            <ul className="space-y-2">
-              {selectedPose.teaching_cues.map((c, i) => (
-                <li key={i} className="text-sm text-sage-800 flex gap-2">
-                  <span className="text-sage-500 font-bold">{i + 1}.</span> {c}
+          <div className="mb-5 p-4 rounded-2xl bg-muted border border-border">
+          <h3 className="text-xs font-bold uppercase text-muted-foreground tracking-wider mb-2">🗣️ Teaching Cues</h3>
+          <ul className="space-y-2">
+            {selectedPose.teaching_cues.map((c, i) => (
+              <li key={i} className="text-sm flex gap-2">
+                <span className="font-bold text-muted-foreground">{i + 1}.</span> {c}
                 </li>
               ))}
             </ul>
@@ -119,11 +119,11 @@ export default function PoseLibrary() {
 
         {/* Modifications */}
         {selectedPose.modifications?.length > 0 && (
-          <div className="mb-5 p-4 rounded-2xl bg-lavender-50 border border-lavender-200">
-            <h3 className="text-xs font-bold uppercase text-lavender-700 tracking-wider mb-2">Modifications</h3>
+          <div className="mb-5 p-4 rounded-2xl bg-muted border border-border">
+            <h3 className="text-xs font-bold uppercase text-muted-foreground tracking-wider mb-2">Modifications</h3>
             <ul className="space-y-1.5">
               {selectedPose.modifications.map((m, i) => (
-                <li key={i} className="text-sm text-lavender-800">• {m}</li>
+                <li key={i} className="text-sm">• {m}</li>
               ))}
             </ul>
           </div>
@@ -131,13 +131,13 @@ export default function PoseLibrary() {
 
         {/* Common mistakes */}
         {selectedPose.common_mistakes?.length > 0 && (
-          <div className="mb-5 p-4 rounded-2xl bg-terra-50 border border-terra-200">
-            <h3 className="text-xs font-bold uppercase text-terra-700 tracking-wider mb-2 flex items-center gap-1">
+          <div className="mb-5 p-4 rounded-2xl bg-muted border border-border">
+            <h3 className="text-xs font-bold uppercase text-muted-foreground tracking-wider mb-2 flex items-center gap-1">
               <AlertTriangle className="w-3 h-3" /> Common Mistakes
             </h3>
             <ul className="space-y-1.5">
               {selectedPose.common_mistakes.map((m, i) => (
-                <li key={i} className="text-sm text-terra-800">• {m}</li>
+                <li key={i} className="text-sm">• {m}</li>
               ))}
             </ul>
           </div>

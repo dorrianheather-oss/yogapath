@@ -285,8 +285,8 @@ function ClassSections({ sections, expandedSection, setExpandedSection }) {
                     </div>
                   ))}
                   {section.philosophy_note && (
-                    <div className="p-3 rounded-xl bg-lavender-50 border border-lavender-200">
-                      <p className="text-xs text-lavender-800">📿 {section.philosophy_note}</p>
+                    <div className="p-3 rounded-xl bg-muted border border-border">
+                      <p className="text-xs text-muted-foreground">📿 {section.philosophy_note}</p>
                     </div>
                   )}
                 </div>
