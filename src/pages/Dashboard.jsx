@@ -103,6 +103,14 @@ export default function Dashboard() {
         </div>
       </motion.div>
 
+      {/* Daily Practice */}
+      <DailyPractice
+        profile={profile}
+        allLessons={allLessons}
+        tracks={filteredTracks}
+        progress={progress}
+      />
+
       {/* Continue learning — next lesson */}
       {filteredTracks.length > 0 && (() => {
         const nextItems = filteredTracks
