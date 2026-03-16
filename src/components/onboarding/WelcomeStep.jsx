@@ -14,7 +14,7 @@ export default function WelcomeStep({ onNext }) {
         initial={{ scale: 0.8 }}
         animate={{ scale: 1 }}
         transition={{ delay: 0.2, type: 'spring' }}
-        className="w-20 h-20 rounded-3xl bg-gradient-to-br from-sage-100 to-sage-200 flex items-center justify-center mb-8"
+        className="w-20 h-20 rounded-3xl bg-muted flex items-center justify-center mb-8"
       >
         <span className="text-4xl">🧘</span>
       </motion.div>
@@ -25,7 +25,7 @@ export default function WelcomeStep({ onNext }) {
         transition={{ delay: 0.3 }}
         className="text-3xl font-bold tracking-tight mb-3"
       >
-        Welcome to Sveja
+        YogaPath
       </motion.h1>
 
       <motion.p
