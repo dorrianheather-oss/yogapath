@@ -2,10 +2,12 @@ import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { motion } from 'framer-motion';
-import { Flame, Star, Trophy, BookOpen, Target } from 'lucide-react';
-import { CATEGORIES, ACHIEVEMENTS, getSkillLabel } from '@/lib/yogaData';
+import { Flame, Star, Trophy, BookOpen } from 'lucide-react';
+import { CATEGORIES, getSkillLabel } from '@/lib/yogaData';
 import { cn } from '@/lib/utils';
 import SkillRadar from '@/components/dashboard/SkillRadar';
+import BadgeGrid from '@/components/badges/BadgeGrid';
+import { computeEarnedBadges, BADGES } from '@/lib/badgeEngine';
 
 export default function Progress() {
   const { data: profiles = [] } = useQuery({
@@ -13,26 +15,25 @@ export default function Progress() {
     queryFn: () => base44.entities.UserProfile.filter({}, '-created_date', 1),
   });
 
-  const { data: completions = [] } = useQuery({
-    queryKey: ['lessonCompletions'],
-    queryFn: () => base44.entities.LessonCompletion.list('-created_date', 100),
+  const { data: progress = [] } = useQuery({
+    queryKey: ['userProgress'],
+    queryFn: () => base44.entities.UserProgress.list('-created_date', 500),
   });
 
   const profile = profiles[0];
   const skills = profile?.skills || {};
-  const earnedAchievements = profile?.achievements || [];
 
-  // Count completions by category
+  const earnedBadgeIds = computeEarnedBadges(profile, progress);
+  const earnedCount = BADGES.filter(b => earnedBadgeIds.has(b.id)).length;
+
+  // Count completions by track category
   const catCounts = {};
-  completions.forEach(c => {
-    catCounts[c.category] = (catCounts[c.category] || 0) + 1;
-  });
 
   const statCards = [
     { label: 'Total XP', value: profile?.total_xp || 0, icon: Star, color: 'text-foreground bg-muted' },
     { label: 'Streak', value: `${profile?.streak_days || 0} days`, icon: Flame, color: 'text-foreground bg-muted' },
     { label: 'Lessons', value: profile?.total_lessons_completed || 0, icon: BookOpen, color: 'text-foreground bg-muted' },
-    { label: 'Achievements', value: earnedAchievements.length, icon: Trophy, color: 'text-foreground bg-muted' },
+    { label: 'Badges', value: earnedCount, icon: Trophy, color: 'text-foreground bg-muted' },
   ];
 
   return (
@@ -103,31 +104,10 @@ export default function Progress() {
         </div>
       </div>
 
-      {/* Achievements */}
+      {/* Badges */}
       <div>
-        <h3 className="text-sm font-semibold mb-3">Achievements</h3>
-        <div className="grid grid-cols-2 gap-2.5">
-          {ACHIEVEMENTS.map((ach) => {
-            const earned = earnedAchievements.includes(ach.id);
-            return (
-              <motion.div
-                key={ach.id}
-                whileTap={{ scale: 0.97 }}
-                className={cn(
-                  "p-4 rounded-2xl border text-center transition-all",
-                  earned
-                    ? "bg-white border-primary/20"
-                    : "bg-muted/50 border-border opacity-50"
-                )}
-              >
-                <span className="text-2xl">{ach.icon}</span>
-                <p className="font-semibold text-xs mt-2">{ach.title}</p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">{ach.description}</p>
-                {earned && <p className="text-[10px] text-primary font-bold mt-1">+{ach.xp} XP</p>}
-              </motion.div>
-            );
-          })}
-        </div>
+        <h3 className="text-sm font-semibold mb-3">Badges</h3>
+        <BadgeGrid earnedIds={earnedBadgeIds} />
       </div>
     </div>
   );
