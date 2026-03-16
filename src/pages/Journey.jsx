@@ -17,6 +17,7 @@ export default function Journey() {
   const [selectedFocus, setSelectedFocus] = useState(null);
   const [activeLesson, setActiveLesson] = useState(null);
   const [generating, setGenerating] = useState(false);
+  const [currentMastery, setCurrentMastery] = useState(null);
   const queryClient = useQueryClient();
 
   const { data: profiles = [] } = useQuery({
