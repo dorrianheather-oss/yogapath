@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
@@ -9,6 +9,8 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import ReactMarkdown from 'react-markdown';
 import { TRACK_ICONS } from '@/lib/curriculumData';
+import { computeEarnedBadges, getNewlyUnlocked } from '@/lib/badgeEngine';
+import BadgeUnlockToast from '@/components/badges/BadgeUnlockToast';
 
 const FOCUS_FILTERS = [
   { id: 'all', label: 'Full Lesson' },
@@ -33,6 +35,7 @@ export default function LessonPlayer() {
   const [activeFilter, setActiveFilter] = useState('all');
   const [generating, setGenerating] = useState(false);
   const [completing, setCompleting] = useState(false);
+  const [newBadges, setNewBadges] = useState([]);
 
   // Use state passed via navigation, or fetch if direct URL
   const stateLesson = location.state?.lesson;
@@ -104,10 +107,25 @@ export default function LessonPlayer() {
     const cat = stateTrack?.category || 'asana';
     newSkills[cat] = Math.min((newSkills[cat] || 0) + 3, 100);
 
+    const newTotalLessons = (profile.total_lessons_completed || 0) + 1;
+    const newTotalXP = (profile.total_xp || 0) + (lesson.xp_reward || 15);
+
+    // Compute badges BEFORE and AFTER update to detect newly unlocked
+    const updatedProfile = {
+      ...profile,
+      skills: newSkills,
+      total_lessons_completed: newTotalLessons,
+      total_xp: newTotalXP,
+    };
+    const updatedProgress = [...progress, { lesson_id: lessonId, track_id: lesson.track_id }];
+    const earnedBefore = computeEarnedBadges(profile, progress);
+    const earnedAfter = computeEarnedBadges(updatedProfile, updatedProgress);
+    const unlocked = getNewlyUnlocked([...earnedBefore], earnedAfter);
+
     await base44.entities.UserProfile.update(profile.id, {
       skills: newSkills,
-      total_lessons_completed: (profile.total_lessons_completed || 0) + 1,
-      total_xp: (profile.total_xp || 0) + (lesson.xp_reward || 15),
+      total_lessons_completed: newTotalLessons,
+      total_xp: newTotalXP,
       last_active_date: new Date().toISOString().split('T')[0],
       daily_goals_completed_today: (profile.daily_goals_completed_today || 0) + 1,
     });
@@ -115,8 +133,18 @@ export default function LessonPlayer() {
     queryClient.invalidateQueries({ queryKey: ['userProgress'] });
     queryClient.invalidateQueries({ queryKey: ['userProfile'] });
     setCompleting(false);
-    navigate(-1);
+
+    if (unlocked.length > 0) {
+      setNewBadges(unlocked);
+    } else {
+      navigate(-1);
+    }
   };
+
+  const dismissBadges = useCallback(() => {
+    setNewBadges([]);
+    navigate(-1);
+  }, [navigate]);
 
   if (!lesson) {
     return (
@@ -131,6 +159,7 @@ export default function LessonPlayer() {
 
   return (
     <div className="min-h-screen max-w-lg mx-auto px-5 pt-12 pb-32">
+      <BadgeUnlockToast newBadgeIds={newBadges} onDismiss={dismissBadges} />
       {/* Top bar */}
       <div className="flex items-center justify-between mb-6">
         <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-sm text-muted-foreground">
