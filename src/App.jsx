@@ -8,12 +8,14 @@ import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 
 import Onboarding from './pages/Onboarding';
 import Dashboard from './pages/Dashboard';
-import Lessons from './pages/Lessons';
+import Learn from './pages/Learn';
+import LessonPlayer from './pages/LessonPlayer';
 import PoseLibrary from './pages/PoseLibrary';
 import ClassBuilder from './pages/ClassBuilder';
 import Progress from './pages/Progress';
 import Journey from './pages/Journey';
 import Library from './pages/Library';
+import Admin from './pages/Admin';
 import AppLayout from './components/layout/AppLayout';
 
 const AuthenticatedApp = () => {
