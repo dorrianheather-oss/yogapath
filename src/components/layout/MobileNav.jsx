@@ -1,12 +1,12 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Map, Dumbbell, LayoutGrid, Heart } from 'lucide-react';
+import { Home, Map, BarChart2, LayoutGrid, Heart } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
   { path: '/Dashboard', icon: Home, label: 'Home' },
   { path: '/Learn', icon: Map, label: 'Learn' },
-  { path: '/PoseLibrary', icon: Dumbbell, label: 'Poses' },
+  { path: '/Analytics', icon: BarChart2, label: 'Analytics' },
   { path: '/ClassBuilder', icon: LayoutGrid, label: 'Build' },
   { path: '/Library', icon: Heart, label: 'Saved' },
 ];

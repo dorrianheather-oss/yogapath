@@ -56,6 +56,7 @@ const AuthenticatedApp = () => {
         <Route path="/Library" element={<Library />} />
         <Route path="/Journey/:journeyId" element={<Journey />} />
         <Route path="/Admin" element={<Admin />} />
+        <Route path="/Analytics" element={<Analytics />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>
