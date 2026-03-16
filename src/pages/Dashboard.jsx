@@ -6,6 +6,7 @@ import { motion } from 'framer-motion';
 import { Flame, Star, ChevronRight, PlayCircle, CheckCircle2, Lock } from 'lucide-react';
 import { TRACK_ICONS } from '@/lib/curriculumData';
 import { cn } from '@/lib/utils';
+import DailyPractice from '@/components/dashboard/DailyPractice';
 
 export default function Dashboard() {
   const navigate = useNavigate();
