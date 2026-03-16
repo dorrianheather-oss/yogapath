@@ -40,46 +40,17 @@ export default function Journey() {
   const generateLesson = async () => {
     if (!journey) return;
     setGenerating(true);
-    const focusLabel = selectedFocus
-      ? journey.focuses.find(f => f.id === selectedFocus)?.label
-      : journey.label;
+    const focusObj = journey.focuses.find(f => f.id === selectedFocus);
 
-    const result = await base44.integrations.Core.InvokeLLM({
-      prompt: `Create a focused ${level}-level yoga micro-lesson (3-5 min reading time) for the journey: "${journey.label}".
-Focus area: "${focusLabel}".
-
-Structure:
-1. Catchy, specific title
-2. One-sentence description
-3. Lesson content in markdown with:
-   - Core concept or technique
-   - Step-by-step breakdown
-   - Key body awareness points
-   - Breath connection
-   - One practical exercise or drill
-   - One key insight to remember
-
-Keep it practical, specific, and immediately applicable. No fluff.`,
-      response_json_schema: {
-        type: 'object',
-        properties: {
-          title: { type: 'string' },
-          description: { type: 'string' },
-          content: { type: 'string' },
-          duration_minutes: { type: 'number' },
-        },
-      },
+    const response = await base44.functions.invoke('generateAdaptiveLesson', {
+      journeyId: journey.id,
+      categoryKey: journey.categoryKey,
+      focusId: selectedFocus || null,
+      focusLabel: focusObj?.label || journey.label,
     });
 
-    const lesson = await base44.entities.Lesson.create({
-      ...result,
-      category: journey.categoryKey,
-      difficulty: level,
-      for_user_type: 'both',
-      xp_reward: 15,
-      pose_tags: selectedFocus ? [selectedFocus] : [],
-    });
-
+    const { lesson, mastery } = response.data;
+    setCurrentMastery(mastery);
     queryClient.invalidateQueries({ queryKey: ['lessons', journey.categoryKey] });
     setGenerating(false);
     setActiveLesson(lesson);
