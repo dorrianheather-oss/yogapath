@@ -16,6 +16,7 @@ import Progress from './pages/Progress';
 import Journey from './pages/Journey';
 import Library from './pages/Library';
 import Admin from './pages/Admin';
+import Analytics from './pages/Analytics';
 import AppLayout from './components/layout/AppLayout';
 
 const AuthenticatedApp = () => {
