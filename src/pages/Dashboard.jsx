@@ -66,7 +66,7 @@ export default function Dashboard() {
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ delay: 0.1 }}
-        className="bg-white rounded-3xl border border-border p-5"
+        className="bg-white rounded-3xl border border-border p-5 shadow-sm"
       >
         <h3 className="text-sm font-semibold mb-3">Your Skills</h3>
         <SkillRadar skills={skills} />

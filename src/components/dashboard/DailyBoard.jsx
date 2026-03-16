@@ -38,16 +38,16 @@ export default function DailyBoard({ completedCount = 0, streak = 0 }) {
               className={cn(
                 "flex items-center gap-3 p-3.5 rounded-2xl border transition-all",
                 isCompleted
-                  ? "bg-sage-50 border-sage-200"
+                  ? "bg-muted border-border"
                   : "bg-white border-border"
               )}
             >
               <div className={cn(
                 "w-10 h-10 rounded-xl flex items-center justify-center",
-                isCompleted ? "bg-sage-200" : "bg-muted"
+                isCompleted ? "bg-foreground" : "bg-muted"
               )}>
                 {isCompleted ? (
-                  <Check className="w-4 h-4 text-sage-700" />
+                  <Check className="w-4 h-4 text-white" />
                 ) : (
                   <span className="text-lg">{goal.icon}</span>
                 )}
