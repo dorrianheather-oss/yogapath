@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -11,10 +11,7 @@ import ReactMarkdown from 'react-markdown';
 
 export default function Journey() {
   const navigate = useNavigate();
-  const urlParams = new URLSearchParams(window.location.search);
-  // Support /Journey/asana via path
-  const pathId = window.location.pathname.split('/Journey/')[1];
-  const journeyId = pathId || urlParams.get('id') || 'asana';
+  const { journeyId = 'asana' } = useParams();
   const journey = getJourney(journeyId);
 
   const [selectedFocus, setSelectedFocus] = useState(null);
