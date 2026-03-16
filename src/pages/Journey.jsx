@@ -95,8 +95,15 @@ export default function Journey() {
         <button onClick={() => setActiveLesson(null)} className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
           <ArrowLeft className="w-4 h-4" /> Back
         </button>
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-muted text-xs font-medium mb-3">
-          {journey.icon} {journey.label}
+        <div className="flex items-center gap-2 mb-3">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-muted text-xs font-medium">
+            {journey.icon} {journey.label}
+          </div>
+          {currentMastery && (
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-foreground text-background text-xs font-medium">
+              {currentMastery.tier} · {currentMastery.score}/100
+            </div>
+          )}
         </div>
         <h1 className="text-2xl font-bold mb-2">{activeLesson.title}</h1>
         <div className="flex items-center gap-3 text-sm text-muted-foreground mb-6">
