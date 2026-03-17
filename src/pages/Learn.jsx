@@ -57,6 +57,22 @@ export default function Learn() {
   }
 
   return (
+    const MASTERY_LABELS = {
+    foundations: 'Foundations',
+    practitioner: 'Practitioner',
+    teacher_200: 'Teacher (200hr)',
+    advanced_300: 'Advanced Teacher (300hr)',
+    mastery_500: 'Mastery (500hr)',
+  };
+
+  // Group tracks by mastery level
+  const levelOrder = ['foundations', 'practitioner', 'teacher_200', 'advanced_300', 'mastery_500'];
+  const tracksByLevel = levelOrder
+    .map(lv => ({ lv, label: MASTERY_LABELS[lv], tracks: filteredTracks.filter(t => (t.mastery_level || 'foundations') === lv) }))
+    .filter(g => g.tracks.length > 0);
+  const ungrouped = filteredTracks.filter(t => !t.mastery_level);
+
+  return (
     <div className="px-5 pt-12 pb-24 max-w-lg mx-auto">
       <h1 className="text-2xl font-bold mb-1">Your Path</h1>
       <p className="text-sm text-muted-foreground mb-6">Follow the curriculum, unlock each lesson</p>
