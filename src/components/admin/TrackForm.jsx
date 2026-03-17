@@ -3,9 +3,17 @@ import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { X } from 'lucide-react';
+import TagInput from './TagInput';
 
 const CATEGORIES = ['asana', 'anatomy', 'breathwork', 'philosophy', 'cueing', 'programming'];
 const USER_TYPES = ['both', 'student', 'teacher'];
+const MASTERY_LEVELS = [
+  { value: 'foundations', label: 'Foundations' },
+  { value: 'practitioner', label: 'Practitioner' },
+  { value: 'teacher_200', label: 'Teacher (200hr)' },
+  { value: 'advanced_300', label: 'Advanced Teacher (300hr)' },
+  { value: 'mastery_500', label: 'Mastery (500hr)' },
+];
 
 export default function TrackForm({ data, onClose, onSave }) {
   const [form, setForm] = useState({
@@ -13,6 +21,8 @@ export default function TrackForm({ data, onClose, onSave }) {
     description: data?.description || '',
     icon: data?.icon || '📚',
     category: data?.category || 'asana',
+    mastery_level: data?.mastery_level || 'foundations',
+    tags: data?.tags || [],
     order_index: data?.order_index ?? 0,
     is_published: data?.is_published ?? false,
     for_user_type: data?.for_user_type || 'both',
@@ -38,7 +48,7 @@ export default function TrackForm({ data, onClose, onSave }) {
         </div>
         <div className="space-y-3">
           <div className="flex gap-3">
-            <Input placeholder="Icon emoji" value={form.icon} onChange={e => setForm(f => ({ ...f, icon: e.target.value }))} className="w-20 text-center text-xl" />
+            <Input placeholder="Icon" value={form.icon} onChange={e => setForm(f => ({ ...f, icon: e.target.value }))} className="w-20 text-center text-xl" />
             <Input placeholder="Track title" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} className="flex-1" />
           </div>
           <Input placeholder="Description" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
@@ -50,6 +60,17 @@ export default function TrackForm({ data, onClose, onSave }) {
               {USER_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">Mastery Level</label>
+            <select className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm" value={form.mastery_level} onChange={e => setForm(f => ({ ...f, mastery_level: e.target.value }))}>
+              {MASTERY_LEVELS.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
+            </select>
+          </div>
+          <TagInput
+            tags={form.tags}
+            onChange={tags => setForm(f => ({ ...f, tags }))}
+            context={form.title + (form.description ? ': ' + form.description : '')}
+          />
           <div className="flex items-center gap-2">
             <input type="checkbox" id="pub" checked={form.is_published} onChange={e => setForm(f => ({ ...f, is_published: e.target.checked }))} className="w-4 h-4" />
             <label htmlFor="pub" className="text-sm">Published</label>

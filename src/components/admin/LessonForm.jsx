@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
+import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { X } from 'lucide-react';
+import TagInput from './TagInput';
 
 const DIFFICULTIES = ['beginner', 'intermediate', 'advanced'];
 const LESSON_TYPES = ['text', 'video', 'practice', 'quiz'];
@@ -17,10 +19,29 @@ export default function LessonForm({ data, moduleId, trackId, onClose, onSave })
     xp_reward: data?.xp_reward ?? 15,
     difficulty: data?.difficulty || 'beginner',
     lesson_type: data?.lesson_type || 'text',
+    tags: data?.tags || [],
+    prerequisite_lesson_ids: data?.prerequisite_lesson_ids || [],
     order_index: data?.order_index ?? 0,
     is_published: data?.is_published ?? false,
   });
   const [saving, setSaving] = useState(false);
+
+  const { data: siblingLessons = [] } = useQuery({
+    queryKey: ['moduleLessons', moduleId],
+    queryFn: () => base44.entities.CurriculumLesson.filter({ module_id: moduleId }, 'order_index', 100),
+    enabled: !!moduleId,
+  });
+
+  const otherLessons = siblingLessons.filter(l => l.id !== data?.id);
+
+  const togglePrereq = (id) => {
+    setForm(f => ({
+      ...f,
+      prerequisite_lesson_ids: f.prerequisite_lesson_ids.includes(id)
+        ? f.prerequisite_lesson_ids.filter(x => x !== id)
+        : [...f.prerequisite_lesson_ids, id],
+    }));
+  };
 
   const save = async () => {
     setSaving(true);
@@ -71,6 +92,32 @@ export default function LessonForm({ data, moduleId, trackId, onClose, onSave })
               <Input type="number" value={form.order_index} onChange={e => setForm(f => ({ ...f, order_index: Number(e.target.value) }))} />
             </div>
           </div>
+
+          <TagInput
+            tags={form.tags}
+            onChange={tags => setForm(f => ({ ...f, tags }))}
+            context={form.title + (form.description ? ': ' + form.description : '')}
+          />
+
+          {otherLessons.length > 0 && (
+            <div>
+              <label className="text-xs text-muted-foreground mb-1.5 block">Prerequisites (lessons that must be done first)</label>
+              <div className="space-y-1 max-h-32 overflow-y-auto">
+                {otherLessons.map(lesson => (
+                  <label key={lesson.id} className="flex items-center gap-2 cursor-pointer text-sm p-1 rounded hover:bg-muted">
+                    <input
+                      type="checkbox"
+                      checked={form.prerequisite_lesson_ids.includes(lesson.id)}
+                      onChange={() => togglePrereq(lesson.id)}
+                      className="w-4 h-4"
+                    />
+                    {lesson.title}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="flex items-center gap-2">
             <input type="checkbox" id="publ" checked={form.is_published} onChange={e => setForm(f => ({ ...f, is_published: e.target.checked }))} className="w-4 h-4" />
             <label htmlFor="publ" className="text-sm">Published</label>
