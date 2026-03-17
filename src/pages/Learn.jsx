@@ -85,7 +85,7 @@ export default function Learn() {
             "flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap border transition-all",
             !activeTrackId ? "bg-primary text-primary-foreground border-primary" : "bg-white border-border text-muted-foreground"
           )}
-        >All Tracks</button>
+        >All</button>
         {filteredTracks.map(t => (
           <button
             key={t.id}
@@ -100,17 +100,35 @@ export default function Learn() {
         ))}
       </div>
 
-      <div className="space-y-4">
-        {filteredTracks
-          .filter(t => !activeTrackId || t.id === activeTrackId)
-          .map((track, ti) => (
-            <TrackCard
-              key={track.id}
-              track={track}
-              completedLessonIds={completedLessonIds}
-              onLessonClick={(lesson, module) => navigate(`/Lesson/${lesson.id}`, { state: { lesson, module, track } })}
-            />
-          ))}
+      {/* Grouped by mastery level */}
+      <div className="space-y-6">
+        {(tracksByLevel.length > 0 ? tracksByLevel : [{ lv: 'all', label: null, tracks: filteredTracks }]).map(group => (
+          <div key={group.lv}>
+            {group.label && tracksByLevel.length > 1 && (
+              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3 px-1">{group.label}</p>
+            )}
+            <div className="space-y-4">
+              {group.tracks
+                .filter(t => !activeTrackId || t.id === activeTrackId)
+                .map(track => (
+                  <TrackCard
+                    key={track.id}
+                    track={track}
+                    completedLessonIds={completedLessonIds}
+                    onLessonClick={(lesson, module) => navigate(`/Lesson/${lesson.id}`, { state: { lesson, module, track } })}
+                  />
+                ))}
+            </div>
+          </div>
+        ))}
+        {ungrouped.filter(t => !activeTrackId || t.id === activeTrackId).map(track => (
+          <TrackCard
+            key={track.id}
+            track={track}
+            completedLessonIds={completedLessonIds}
+            onLessonClick={(lesson, module) => navigate(`/Lesson/${lesson.id}`, { state: { lesson, module, track } })}
+          />
+        ))}
       </div>
     </div>
   );
