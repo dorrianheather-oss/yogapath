@@ -7,6 +7,7 @@ import { Flame, Star, ChevronRight, PlayCircle, CheckCircle2, Lock } from 'lucid
 import { TRACK_ICONS } from '@/lib/curriculumData';
 import { cn } from '@/lib/utils';
 import DailyPractice from '@/components/dashboard/DailyPractice';
+import DailyGoals from '@/components/dashboard/DailyGoals';
 
 export default function Dashboard() {
   const navigate = useNavigate();
