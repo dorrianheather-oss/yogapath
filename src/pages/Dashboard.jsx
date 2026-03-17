@@ -104,6 +104,9 @@ export default function Dashboard() {
         </div>
       </motion.div>
 
+      {/* Daily Goals */}
+      <DailyGoals profile={profile} />
+
       {/* Daily Practice */}
       <DailyPractice
         profile={profile}
