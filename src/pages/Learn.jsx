@@ -56,8 +56,7 @@ export default function Learn() {
     );
   }
 
-  return (
-    const MASTERY_LABELS = {
+  const MASTERY_LABELS = {
     foundations: 'Foundations',
     practitioner: 'Practitioner',
     teacher_200: 'Teacher (200hr)',
@@ -65,7 +64,6 @@ export default function Learn() {
     mastery_500: 'Mastery (500hr)',
   };
 
-  // Group tracks by mastery level
   const levelOrder = ['foundations', 'practitioner', 'teacher_200', 'advanced_300', 'mastery_500'];
   const tracksByLevel = levelOrder
     .map(lv => ({ lv, label: MASTERY_LABELS[lv], tracks: filteredTracks.filter(t => (t.mastery_level || 'foundations') === lv) }))
