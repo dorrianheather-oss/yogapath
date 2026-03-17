@@ -1,21 +1,27 @@
 import React, { useState } from 'react';
-import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { motion } from 'framer-motion';
-import { Plus, ChevronDown, ChevronRight, Edit2, Trash2, Eye, EyeOff, Loader2, Sparkles, BookOpen, Layers, FileText, Upload } from 'lucide-react';
+import { Plus, ChevronDown, ChevronRight, Edit2, Trash2, Eye, EyeOff, Loader2, Sparkles, BookOpen, Layers, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { SEED_CURRICULUM } from '@/lib/curriculumData';
 import TrackForm from '@/components/admin/TrackForm';
 import ModuleForm from '@/components/admin/ModuleForm';
 import LessonForm from '@/components/admin/LessonForm';
 
+const MASTERY_LEVELS = [
+  { value: 'foundations', label: 'Foundations' },
+  { value: 'practitioner', label: 'Practitioner' },
+  { value: 'teacher_200', label: 'Teacher (200hr)' },
+  { value: 'advanced_300', label: 'Advanced Teacher (300hr)' },
+  { value: 'mastery_500', label: 'Mastery (500hr)' },
+];
+
 export default function Admin() {
   const queryClient = useQueryClient();
   const [seeding, setSeeding] = useState(false);
-  const [activeTab, setActiveTab] = useState('curriculum'); // curriculum | stats
-  const [modal, setModal] = useState(null); // { type: 'track'|'module'|'lesson', data?, parentId? }
+  const [modal, setModal] = useState(null);
   const [expandedTracks, setExpandedTracks] = useState({});
   const [expandedModules, setExpandedModules] = useState({});
 
@@ -40,7 +46,6 @@ export default function Admin() {
     queryFn: () => base44.entities.CurriculumLesson.list('order_index', 500),
   });
 
-  // Guard: admin only
   if (profile && profile.role !== 'admin') {
     return (
       <div className="flex flex-col items-center justify-center h-screen px-6 text-center">
@@ -92,6 +97,14 @@ export default function Admin() {
     queryClient.invalidateQueries({ queryKey: [`all${type.charAt(0).toUpperCase() + type.slice(1)}s`] });
   };
 
+  // Group tracks by mastery level
+  const tracksByLevel = MASTERY_LEVELS.map(level => ({
+    ...level,
+    tracks: tracks.filter(t => (t.mastery_level || 'foundations') === level.value),
+  })).filter(l => l.tracks.length > 0 || tracks.length === 0);
+
+  const levelsWithTracks = tracksByLevel.filter(l => l.tracks.length > 0);
+
   return (
     <div className="px-5 pt-12 pb-24 max-w-lg mx-auto">
       {/* Header */}
@@ -100,16 +113,12 @@ export default function Admin() {
           <h1 className="text-2xl font-bold">Admin Portal</h1>
           <p className="text-sm text-muted-foreground">Manage curriculum</p>
         </div>
-        <Button
-          onClick={() => setModal({ type: 'track' })}
-          size="sm"
-          className="rounded-xl gap-1.5"
-        >
+        <Button onClick={() => setModal({ type: 'track' })} size="sm" className="rounded-xl gap-1.5">
           <Plus className="w-4 h-4" /> Track
         </Button>
       </div>
 
-      {/* Seed button (shown when empty) */}
+      {/* Seed button */}
       {tracks.length === 0 && !isLoading && (
         <div className="text-center py-10 border-2 border-dashed border-border rounded-2xl mb-6">
           <div className="text-3xl mb-3">🌱</div>
@@ -121,7 +130,7 @@ export default function Admin() {
         </div>
       )}
 
-      {/* Stats bar */}
+      {/* Stats */}
       <div className="grid grid-cols-3 gap-2 mb-6">
         {[
           { label: 'Tracks', value: tracks.length, icon: Layers },
@@ -136,133 +145,127 @@ export default function Admin() {
         ))}
       </div>
 
-      {/* Curriculum tree */}
+      {/* Curriculum tree grouped by level */}
       {isLoading ? (
         <div className="flex justify-center py-12">
           <div className="w-6 h-6 border-2 border-muted border-t-foreground rounded-full animate-spin" />
         </div>
       ) : (
-        <div className="space-y-3">
-          {tracks.map(track => {
-            const trackModules = modules.filter(m => m.track_id === track.id).sort((a,b) => a.order_index - b.order_index);
-            const isExpanded = expandedTracks[track.id];
-            return (
-              <div key={track.id} className="rounded-2xl border border-border overflow-hidden bg-white">
-                {/* Track row */}
-                <div className="flex items-center gap-2 p-3">
-                  <button onClick={() => setExpandedTracks(e => ({ ...e, [track.id]: !e[track.id] }))} className="flex items-center gap-2 flex-1 min-w-0">
-                    <span className="text-xl">{track.icon || '📚'}</span>
-                    <div className="flex-1 min-w-0 text-left">
-                      <p className="font-semibold text-sm truncate">{track.title}</p>
-                      <p className="text-xs text-muted-foreground">{trackModules.length} modules · {lessons.filter(l => l.track_id === track.id).length} lessons</p>
-                    </div>
-                    {isExpanded ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
-                  </button>
-                  <div className="flex items-center gap-1">
-                    <button onClick={() => togglePublish(track, 'track')} className={cn("p-1.5 rounded-lg transition-all", track.is_published ? "text-foreground" : "text-muted-foreground hover:text-foreground")}>
-                      {track.is_published ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
-                    </button>
-                    <button onClick={() => setModal({ type: 'track', data: track })} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground transition-all">
-                      <Edit2 className="w-3.5 h-3.5" />
-                    </button>
-                    <button onClick={() => setModal({ type: 'module', parentId: track.id })} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground transition-all">
-                      <Plus className="w-3.5 h-3.5" />
-                    </button>
-                    <button onClick={() => deleteEntity(track, 'track')} className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive transition-all">
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Modules */}
-                {isExpanded && (
-                  <div className="border-t border-border">
-                    {trackModules.map(mod => {
-                      const modLessons = lessons.filter(l => l.module_id === mod.id).sort((a,b) => a.order_index - b.order_index);
-                      const isModExpanded = expandedModules[mod.id];
-                      return (
-                        <div key={mod.id} className="border-b border-border last:border-b-0">
-                          <div className="flex items-center gap-2 px-4 py-2.5">
-                            <button onClick={() => setExpandedModules(e => ({ ...e, [mod.id]: !e[mod.id] }))} className="flex items-center gap-2 flex-1 min-w-0">
-                              <BookOpen className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
-                              <div className="flex-1 min-w-0 text-left">
-                                <p className="text-sm font-medium truncate">{mod.title}</p>
-                                <p className="text-xs text-muted-foreground">{modLessons.length} lessons</p>
-                              </div>
-                              {isModExpanded ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />}
-                            </button>
-                            <div className="flex items-center gap-1">
-                              <button onClick={() => togglePublish(mod, 'module')} className={cn("p-1 rounded transition-all", mod.is_published ? "text-foreground" : "text-muted-foreground")}>
-                                {mod.is_published ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
-                              </button>
-                              <button onClick={() => setModal({ type: 'module', data: mod, parentId: track.id })} className="p-1 rounded text-muted-foreground hover:text-foreground">
-                                <Edit2 className="w-3 h-3" />
-                              </button>
-                              <button onClick={() => setModal({ type: 'lesson', parentId: mod.id, trackId: track.id })} className="p-1 rounded text-muted-foreground hover:text-foreground">
-                                <Plus className="w-3 h-3" />
-                              </button>
-                              <button onClick={() => deleteEntity(mod, 'module')} className="p-1 rounded text-muted-foreground hover:text-destructive">
-                                <Trash2 className="w-3 h-3" />
-                              </button>
+        <div className="space-y-6">
+          {(levelsWithTracks.length > 0 ? levelsWithTracks : [{ label: 'All Tracks', tracks }]).map(level => (
+            <div key={level.value || 'all'}>
+              {levelsWithTracks.length > 0 && (
+                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 px-1">{level.label}</p>
+              )}
+              <div className="space-y-3">
+                {level.tracks.map(track => {
+                  const trackModules = modules.filter(m => m.track_id === track.id).sort((a, b) => a.order_index - b.order_index);
+                  const isExpanded = expandedTracks[track.id];
+                  return (
+                    <div key={track.id} className="rounded-2xl border border-border overflow-hidden bg-white">
+                      <div className="flex items-center gap-2 p-3">
+                        <button onClick={() => setExpandedTracks(e => ({ ...e, [track.id]: !e[track.id] }))} className="flex items-center gap-2 flex-1 min-w-0">
+                          <span className="text-xl">{track.icon || '📚'}</span>
+                          <div className="flex-1 min-w-0 text-left">
+                            <div className="flex items-center gap-2">
+                              <p className="font-semibold text-sm truncate">{track.title}</p>
+                              {track.tags?.length > 0 && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">{track.tags[0]}{track.tags.length > 1 ? ` +${track.tags.length - 1}` : ''}</span>
+                              )}
                             </div>
+                            <p className="text-xs text-muted-foreground">{trackModules.length} modules · {lessons.filter(l => l.track_id === track.id).length} lessons</p>
                           </div>
-
-                          {/* Lessons */}
-                          {isModExpanded && modLessons.map(lesson => (
-                            <div key={lesson.id} className="flex items-center gap-2 pl-10 pr-4 py-2 bg-muted/30 border-t border-border">
-                              <FileText className="w-3 h-3 text-muted-foreground flex-shrink-0" />
-                              <div className="flex-1 min-w-0">
-                                <p className="text-xs font-medium truncate">{lesson.title}</p>
-                                <p className="text-xs text-muted-foreground">{lesson.duration_minutes}m · {lesson.difficulty}</p>
-                              </div>
-                              <div className="flex items-center gap-1">
-                                <button onClick={() => togglePublish(lesson, 'lesson')} className={cn("p-1 rounded", lesson.is_published ? "text-foreground" : "text-muted-foreground")}>
-                                  {lesson.is_published ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
-                                </button>
-                                <button onClick={() => setModal({ type: 'lesson', data: lesson, parentId: mod.id, trackId: track.id })} className="p-1 rounded text-muted-foreground hover:text-foreground">
-                                  <Edit2 className="w-3 h-3" />
-                                </button>
-                                <button onClick={() => deleteEntity(lesson, 'lesson')} className="p-1 rounded text-muted-foreground hover:text-destructive">
-                                  <Trash2 className="w-3 h-3" />
-                                </button>
-                              </div>
-                            </div>
-                          ))}
+                          {isExpanded ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
+                        </button>
+                        <div className="flex items-center gap-1">
+                          <button onClick={() => togglePublish(track, 'track')} className={cn("p-1.5 rounded-lg transition-all", track.is_published ? "text-foreground" : "text-muted-foreground")}>
+                            {track.is_published ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                          </button>
+                          <button onClick={() => setModal({ type: 'track', data: track })} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground">
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => setModal({ type: 'module', parentId: track.id })} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground">
+                            <Plus className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => deleteEntity(track, 'track')} className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
+                      </div>
+
+                      {isExpanded && (
+                        <div className="border-t border-border">
+                          {trackModules.map(mod => {
+                            const modLessons = lessons.filter(l => l.module_id === mod.id).sort((a, b) => a.order_index - b.order_index);
+                            const isModExpanded = expandedModules[mod.id];
+                            return (
+                              <div key={mod.id} className="border-b border-border last:border-b-0">
+                                <div className="flex items-center gap-2 px-4 py-2.5">
+                                  <button onClick={() => setExpandedModules(e => ({ ...e, [mod.id]: !e[mod.id] }))} className="flex items-center gap-2 flex-1 min-w-0">
+                                    <BookOpen className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                                    <div className="flex-1 min-w-0 text-left">
+                                      <p className="text-sm font-medium truncate">{mod.title}</p>
+                                      <p className="text-xs text-muted-foreground">{modLessons.length} lessons{mod.tags?.length > 0 ? ` · ${mod.tags.slice(0, 2).join(', ')}` : ''}</p>
+                                    </div>
+                                    {isModExpanded ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />}
+                                  </button>
+                                  <div className="flex items-center gap-1">
+                                    <button onClick={() => togglePublish(mod, 'module')} className={cn("p-1 rounded", mod.is_published ? "text-foreground" : "text-muted-foreground")}>
+                                      {mod.is_published ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+                                    </button>
+                                    <button onClick={() => setModal({ type: 'module', data: mod, parentId: track.id })} className="p-1 rounded text-muted-foreground hover:text-foreground">
+                                      <Edit2 className="w-3 h-3" />
+                                    </button>
+                                    <button onClick={() => setModal({ type: 'lesson', parentId: mod.id, trackId: track.id })} className="p-1 rounded text-muted-foreground hover:text-foreground">
+                                      <Plus className="w-3 h-3" />
+                                    </button>
+                                    <button onClick={() => deleteEntity(mod, 'module')} className="p-1 rounded text-muted-foreground hover:text-destructive">
+                                      <Trash2 className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                </div>
+                                {isModExpanded && modLessons.map(lesson => (
+                                  <div key={lesson.id} className="flex items-center gap-2 pl-10 pr-4 py-2 bg-muted/30 border-t border-border">
+                                    <FileText className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-xs font-medium truncate">{lesson.title}</p>
+                                      <p className="text-xs text-muted-foreground">{lesson.duration_minutes}m · {lesson.difficulty}{lesson.tags?.length > 0 ? ` · ${lesson.tags.slice(0, 2).join(', ')}` : ''}</p>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                      <button onClick={() => togglePublish(lesson, 'lesson')} className={cn("p-1 rounded", lesson.is_published ? "text-foreground" : "text-muted-foreground")}>
+                                        {lesson.is_published ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+                                      </button>
+                                      <button onClick={() => setModal({ type: 'lesson', data: lesson, parentId: mod.id, trackId: track.id })} className="p-1 rounded text-muted-foreground hover:text-foreground">
+                                        <Edit2 className="w-3 h-3" />
+                                      </button>
+                                      <button onClick={() => deleteEntity(lesson, 'lesson')} className="p-1 rounded text-muted-foreground hover:text-destructive">
+                                        <Trash2 className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
       )}
 
-      {/* Modals */}
       {modal?.type === 'track' && (
-        <TrackForm
-          data={modal.data}
-          onClose={() => setModal(null)}
-          onSave={() => { queryClient.invalidateQueries({ queryKey: ['allTracks'] }); setModal(null); }}
-        />
+        <TrackForm data={modal.data} onClose={() => setModal(null)} onSave={() => { queryClient.invalidateQueries({ queryKey: ['allTracks'] }); setModal(null); }} />
       )}
       {modal?.type === 'module' && (
-        <ModuleForm
-          data={modal.data}
-          trackId={modal.parentId}
-          onClose={() => setModal(null)}
-          onSave={() => { queryClient.invalidateQueries({ queryKey: ['allModules'] }); setModal(null); }}
-        />
+        <ModuleForm data={modal.data} trackId={modal.parentId} onClose={() => setModal(null)} onSave={() => { queryClient.invalidateQueries({ queryKey: ['allModules'] }); setModal(null); }} />
       )}
       {modal?.type === 'lesson' && (
-        <LessonForm
-          data={modal.data}
-          moduleId={modal.parentId}
-          trackId={modal.trackId}
-          onClose={() => setModal(null)}
-          onSave={() => { queryClient.invalidateQueries({ queryKey: ['allLessons'] }); setModal(null); }}
-        />
+        <LessonForm data={modal.data} moduleId={modal.parentId} trackId={modal.trackId} onClose={() => setModal(null)} onSave={() => { queryClient.invalidateQueries({ queryKey: ['allLessons'] }); setModal(null); }} />
       )}
     </div>
   );

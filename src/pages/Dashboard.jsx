@@ -1,13 +1,19 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Flame, Star, ChevronRight, PlayCircle, CheckCircle2, Lock } from 'lucide-react';
+import { PlayCircle, ChevronRight, CheckCircle2, Flame, Star } from 'lucide-react';
 import { TRACK_ICONS } from '@/lib/curriculumData';
 import { cn } from '@/lib/utils';
-import DailyPractice from '@/components/dashboard/DailyPractice';
-import DailyGoals from '@/components/dashboard/DailyGoals';
+
+const MASTERY_LABELS = {
+  foundations: 'Foundations',
+  practitioner: 'Practitioner',
+  teacher_200: 'Teacher',
+  advanced_300: 'Advanced Teacher',
+  mastery_500: 'Mastery',
+};
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -55,21 +61,22 @@ export default function Dashboard() {
     t.for_user_type === 'both' || t.for_user_type === profile.user_type
   );
 
-  // Find the "next up" lesson across all tracks
-  const getNextLesson = (track) => {
-    const trackModules = modules
-      .filter(m => m.track_id === track.id)
-      .sort((a, b) => a.order_index - b.order_index);
-
-    for (const mod of trackModules) {
-      const modLessons = allLessons
-        .filter(l => l.module_id === mod.id)
+  // Find the very next lesson across all tracks in order
+  const findNextLesson = () => {
+    for (const track of filteredTracks) {
+      const trackModules = modules
+        .filter(m => m.track_id === track.id)
         .sort((a, b) => a.order_index - b.order_index);
-      for (const lesson of modLessons) {
-        if (!completedIds.has(lesson.id)) return { lesson, module: mod };
+      for (const mod of trackModules) {
+        const modLessons = allLessons
+          .filter(l => l.module_id === mod.id)
+          .sort((a, b) => a.order_index - b.order_index);
+        for (const lesson of modLessons) {
+          if (!completedIds.has(lesson.id)) return { lesson, module: mod, track };
+        }
       }
     }
-    return null; // All done
+    return null;
   };
 
   const getTrackProgress = (track) => {
@@ -78,139 +85,128 @@ export default function Dashboard() {
     return { done, total: tLessons.length, pct: tLessons.length > 0 ? Math.round((done / tLessons.length) * 100) : 0 };
   };
 
-  const totalCompleted = progress.length;
+  const next = findNextLesson();
+
+  // Determine current mastery level from the next track or most progressed
+  const currentLevel = next?.track?.mastery_level || filteredTracks[0]?.mastery_level || 'foundations';
+  const currentLevelLabel = MASTERY_LABELS[currentLevel] || 'Foundations';
+
+  // Overall progress across all lessons
+  const totalLessons = allLessons.length;
+  const totalDone = progress.length;
+  const overallPct = totalLessons > 0 ? Math.round((totalDone / totalLessons) * 100) : 0;
 
   return (
-    <div className="px-5 pt-12 pb-24 space-y-8 max-w-lg mx-auto">
+    <div className="px-5 pt-12 pb-24 max-w-lg mx-auto space-y-6">
+
       {/* Header */}
-      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm text-muted-foreground">Welcome back</p>
-            <h1 className="text-2xl font-bold tracking-tight">
-              {profile.user_type === 'teacher' ? 'Teacher' : 'Practitioner'}
-            </h1>
+      <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{currentLevelLabel}</p>
+          <h1 className="text-2xl font-bold tracking-tight">Your Path</h1>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted">
+            <Flame className="w-4 h-4" />
+            <span className="text-sm font-bold">{profile.streak_days || 0}</span>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted">
-              <Flame className="w-4 h-4" />
-              <span className="text-sm font-bold">{profile.streak_days || 0}</span>
-            </div>
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted">
-              <Star className="w-4 h-4" />
-              <span className="text-sm font-bold">{profile.total_xp || 0}</span>
-            </div>
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted">
+            <Star className="w-4 h-4" />
+            <span className="text-sm font-bold">{profile.total_xp || 0}</span>
           </div>
         </div>
       </motion.div>
 
-      {/* Daily Goals */}
-      <DailyGoals profile={profile} />
-
-      {/* Daily Practice */}
-      <DailyPractice
-        profile={profile}
-        allLessons={allLessons}
-        tracks={filteredTracks}
-        progress={progress}
-      />
-
-      {/* Continue learning — next lesson */}
-      {filteredTracks.length > 0 && (() => {
-        const nextItems = filteredTracks
-          .map(t => ({ track: t, ...getNextLesson(t) }))
-          .filter(x => x.lesson)
-          .slice(0, 1);
-
-        if (nextItems.length === 0) return null;
-        const { track, lesson, module: mod } = nextItems[0];
-
-        return (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Continue Learning</h2>
-            <button
-              onClick={() => navigate(`/Lesson/${lesson.id}`, { state: { lesson, module: mod, track } })}
-              className="w-full flex items-center gap-4 p-4 rounded-2xl bg-foreground text-background hover:opacity-90 transition-all text-left"
-            >
-              <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center text-2xl flex-shrink-0">
-                {track.icon || TRACK_ICONS[track.category]}
+      {/* Primary CTA — Next Lesson */}
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
+        {next ? (
+          <button
+            onClick={() => navigate(`/Lesson/${next.lesson.id}`, { state: { lesson: next.lesson, module: next.module, track: next.track } })}
+            className="w-full p-5 rounded-3xl bg-foreground text-background text-left hover:opacity-90 transition-all"
+          >
+            <div className="flex items-start gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-white/10 flex items-center justify-center text-3xl flex-shrink-0">
+                {next.track.icon || TRACK_ICONS[next.track.category]}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium opacity-70 mb-0.5">{track.title} · {mod?.title}</p>
-                <p className="font-bold text-sm leading-tight">{lesson.title}</p>
-                <p className="text-xs opacity-60 mt-0.5">{lesson.duration_minutes} min · +{lesson.xp_reward} XP</p>
+                <p className="text-xs font-medium opacity-60 mb-0.5">{next.track.title} · {next.module.title}</p>
+                <p className="font-bold text-lg leading-tight">{next.lesson.title}</p>
+                <p className="text-sm opacity-60 mt-1">{next.lesson.duration_minutes} min · +{next.lesson.xp_reward} XP</p>
               </div>
-              <PlayCircle className="w-8 h-8 opacity-80 flex-shrink-0" />
-            </button>
-          </motion.div>
-        );
-      })()}
+              <PlayCircle className="w-9 h-9 opacity-70 flex-shrink-0 mt-1" />
+            </div>
+            <div className="mt-4 pt-4 border-t border-white/10 flex items-center justify-between">
+              <p className="text-sm font-semibold">Continue Learning</p>
+              <ChevronRight className="w-4 h-4 opacity-60" />
+            </div>
+          </button>
+        ) : (
+          <div className="w-full p-5 rounded-3xl bg-muted text-center">
+            <div className="text-3xl mb-2">🎉</div>
+            <p className="font-bold">All caught up!</p>
+            <p className="text-sm text-muted-foreground mt-1">Check back when new lessons are published.</p>
+          </div>
+        )}
+      </motion.div>
 
-      {/* Track progress overview */}
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+      {/* Overall progress bar */}
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}>
+        <div className="flex items-center justify-between text-xs text-muted-foreground mb-1.5">
+          <span className="font-semibold">Overall Progress</span>
+          <span>{totalDone}/{totalLessons} lessons · {overallPct}%</span>
+        </div>
+        <div className="h-2 rounded-full bg-muted overflow-hidden">
+          <motion.div
+            initial={{ width: 0 }}
+            animate={{ width: `${overallPct}%` }}
+            transition={{ duration: 0.8, ease: 'easeOut', delay: 0.2 }}
+            className="h-full rounded-full bg-foreground"
+          />
+        </div>
+      </motion.div>
+
+      {/* Track progress pills */}
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Your Tracks</h2>
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Tracks</h2>
           <button onClick={() => navigate('/Learn')} className="text-xs font-semibold flex items-center gap-1">
             View all <ChevronRight className="w-3 h-3" />
           </button>
         </div>
-        <div className="space-y-2.5">
+        <div className="space-y-2">
           {filteredTracks.map((track, i) => {
             const { done, total, pct } = getTrackProgress(track);
-            const next = getNextLesson(track);
             const allDone = done === total && total > 0;
-
             return (
               <motion.button
                 key={track.id}
-                initial={{ opacity: 0, y: 8 }}
+                initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 + i * 0.05 }}
+                transition={{ delay: 0.15 + i * 0.04 }}
                 onClick={() => navigate('/Learn', { state: { activeTrack: track.id } })}
-                className="w-full flex items-center gap-3 p-4 rounded-2xl bg-white border border-border hover:shadow-sm transition-all text-left"
+                className="w-full flex items-center gap-3 p-3 rounded-2xl bg-white border border-border hover:shadow-sm transition-all text-left"
               >
-                <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center text-xl flex-shrink-0">
+                <div className="w-9 h-9 rounded-xl bg-muted flex items-center justify-center text-lg flex-shrink-0">
                   {track.icon || TRACK_ICONS[track.category]}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-1">
                     <p className="font-semibold text-sm">{track.title}</p>
-                    <span className="text-xs text-muted-foreground">{done}/{total}</span>
+                    {allDone
+                      ? <CheckCircle2 className="w-3.5 h-3.5 text-foreground flex-shrink-0" />
+                      : <span className="text-xs text-muted-foreground">{done}/{total}</span>
+                    }
                   </div>
                   <div className="h-1.5 rounded-full bg-muted overflow-hidden">
                     <div className="h-full rounded-full bg-foreground transition-all" style={{ width: `${pct}%` }} />
                   </div>
-                  {next?.lesson && (
-                    <p className="text-xs text-muted-foreground mt-1 truncate">Next: {next.lesson.title}</p>
-                  )}
-                  {allDone && (
-                    <p className="text-xs font-semibold mt-1 flex items-center gap-1">
-                      <CheckCircle2 className="w-3 h-3" /> Complete
-                    </p>
-                  )}
                 </div>
-                <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
               </motion.button>
             );
           })}
         </div>
       </motion.div>
 
-      {/* Stats */}
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}>
-        <div className="grid grid-cols-3 gap-2.5">
-          {[
-            { label: 'Lessons Done', value: totalCompleted },
-            { label: 'Total XP', value: profile.total_xp || 0 },
-            { label: 'Day Streak', value: profile.streak_days || 0 },
-          ].map(s => (
-            <div key={s.label} className="p-3 rounded-2xl bg-white border border-border text-center">
-              <p className="text-xl font-bold">{s.value}</p>
-              <p className="text-xs text-muted-foreground">{s.label}</p>
-            </div>
-          ))}
-        </div>
-      </motion.div>
     </div>
   );
 }
