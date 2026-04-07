@@ -4,16 +4,8 @@ import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { PlayCircle, ChevronRight, CheckCircle2, Flame, Star } from 'lucide-react';
-import { TRACK_ICONS } from '@/lib/curriculumData';
+import { TRACK_ICONS, MASTERY_LABELS } from '@/lib/curriculumData';
 import { cn } from '@/lib/utils';
-
-const MASTERY_LABELS = {
-  foundations: 'Foundations',
-  practitioner: 'Practitioner',
-  teacher_200: 'Teacher',
-  advanced_300: 'Advanced Teacher',
-  mastery_500: 'Mastery',
-};
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -93,7 +85,7 @@ export default function Dashboard() {
 
   // Overall progress across all lessons
   const totalLessons = allLessons.length;
-  const totalDone = progress.length;
+  const totalDone = completedIds.size;
   const overallPct = totalLessons > 0 ? Math.round((totalDone / totalLessons) * 100) : 0;
 
   return (

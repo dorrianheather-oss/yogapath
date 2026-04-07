@@ -20,6 +20,51 @@ const FOCUS_FILTERS = [
   { id: 'mechanics', label: 'Mechanics' },
 ];
 
+const FOCUS_KEYWORDS = {
+  anatomy: ['anatomy', 'anatomical', 'muscle', 'muscles', 'bone', 'joint', 'body', 'physiology', 'spine', 'hip', 'shoulder'],
+  cueing: ['cue', 'cueing', 'cues', 'instruction', 'teach', 'verbal', 'language', 'words', 'say', 'voice'],
+  modifications: ['modification', 'modifications', 'modify', 'prop', 'props', 'variation', 'adapt', 'alternative', 'beginner', 'option'],
+  mechanics: ['mechanic', 'mechanics', 'alignment', 'biomechanic', 'position', 'structure', 'technique', 'form', 'setup'],
+};
+
+function parseMarkdownSections(content) {
+  const lines = content.split('\n');
+  const sections = [];
+  let current = { heading: null, body: [] };
+  for (const line of lines) {
+    if (/^#{1,3} /.test(line)) {
+      if (current.heading !== null || current.body.length > 0) sections.push(current);
+      current = { heading: line, body: [] };
+    } else {
+      current.body.push(line);
+    }
+  }
+  if (current.heading !== null || current.body.length > 0) sections.push(current);
+  return sections;
+}
+
+function filterContent(content, filter) {
+  if (!content || filter === 'all') return content;
+  const keywords = FOCUS_KEYWORDS[filter] || [];
+  const sections = parseMarkdownSections(content);
+  const filtered = sections.filter(s => {
+    const text = ((s.heading || '') + ' ' + s.body.join(' ')).toLowerCase();
+    return keywords.some(kw => text.includes(kw));
+  });
+  if (filtered.length === 0) return content;
+  return filtered.map(s => [s.heading, ...s.body].filter(Boolean).join('\n')).join('\n\n');
+}
+
+function getFilteredSectionCount(content, filter) {
+  if (!content || filter === 'all') return 1;
+  const keywords = FOCUS_KEYWORDS[filter] || [];
+  const sections = parseMarkdownSections(content);
+  return sections.filter(s => {
+    const text = ((s.heading || '') + ' ' + s.body.join(' ')).toLowerCase();
+    return keywords.some(kw => text.includes(kw));
+  }).length;
+}
+
 const DIFFICULTY_COLORS = {
   beginner: 'bg-muted text-muted-foreground',
   intermediate: 'bg-muted text-muted-foreground',
@@ -78,66 +123,91 @@ export default function LessonPlayer() {
   const generateContent = async () => {
     if (!lesson || !profile) return;
     setGenerating(true);
-    const response = await base44.functions.invoke('generateAdaptiveLesson', {
-      journeyId: stateTrack?.category || lesson.track_id,
-      categoryKey: stateTrack?.category || 'asana',
-      focusId: null,
-      focusLabel: lesson.title,
-    });
-    const { lesson: generated } = response.data;
-    // Update the curriculum lesson content
-    await base44.entities.CurriculumLesson.update(lessonId, { content: generated.content });
-    queryClient.invalidateQueries({ queryKey: ['curriculumLesson', lessonId] });
-    setGenerating(false);
+    try {
+      const response = await base44.functions.invoke('generateAdaptiveLesson', {
+        journeyId: stateTrack?.category || lesson.track_id,
+        categoryKey: stateTrack?.category || 'asana',
+        focusId: null,
+        focusLabel: lesson.title,
+      });
+      const { lesson: generated } = response.data;
+      await base44.entities.CurriculumLesson.update(lessonId, { content: generated.content });
+      queryClient.invalidateQueries({ queryKey: ['curriculumLesson', lessonId] });
+    } catch (err) {
+      console.error('Failed to generate lesson content:', err);
+    } finally {
+      setGenerating(false);
+    }
   };
 
   const completeLesson = async () => {
     if (!lesson || !profile || isCompleted) return;
     setCompleting(true);
+    try {
+      await base44.entities.UserProgress.create({
+        lesson_id: lessonId,
+        module_id: lesson.module_id,
+        track_id: lesson.track_id,
+        completed_at: new Date().toISOString(),
+        xp_earned: lesson.xp_reward || 15,
+      });
 
-    await base44.entities.UserProgress.create({
-      lesson_id: lessonId,
-      module_id: lesson.module_id,
-      track_id: lesson.track_id,
-      completed_at: new Date().toISOString(),
-      xp_earned: lesson.xp_reward || 15,
-    });
+      const newSkills = { ...(profile.skills || {}) };
+      const cat = stateTrack?.category || 'asana';
+      newSkills[cat] = Math.min((newSkills[cat] || 0) + 3, 100);
 
-    const newSkills = { ...(profile.skills || {}) };
-    const cat = stateTrack?.category || 'asana';
-    newSkills[cat] = Math.min((newSkills[cat] || 0) + 3, 100);
+      const newTotalLessons = (profile.total_lessons_completed || 0) + 1;
+      const newTotalXP = (profile.total_xp || 0) + (lesson.xp_reward || 15);
 
-    const newTotalLessons = (profile.total_lessons_completed || 0) + 1;
-    const newTotalXP = (profile.total_xp || 0) + (lesson.xp_reward || 15);
+      // Streak calculation
+      const today = new Date().toISOString().split('T')[0];
+      const lastActive = profile.last_active_date;
+      const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+      let newStreak = profile.streak_days || 0;
+      if (lastActive === today) {
+        // Already active today — streak unchanged
+      } else if (lastActive === yesterday) {
+        // Consecutive day — increment
+        newStreak = newStreak + 1;
+      } else {
+        // Gap — reset to 1
+        newStreak = 1;
+      }
 
-    // Compute badges BEFORE and AFTER update to detect newly unlocked
-    const updatedProfile = {
-      ...profile,
-      skills: newSkills,
-      total_lessons_completed: newTotalLessons,
-      total_xp: newTotalXP,
-    };
-    const updatedProgress = [...progress, { lesson_id: lessonId, track_id: lesson.track_id }];
-    const earnedBefore = computeEarnedBadges(profile, progress);
-    const earnedAfter = computeEarnedBadges(updatedProfile, updatedProgress);
-    const unlocked = getNewlyUnlocked([...earnedBefore], earnedAfter);
+      // Compute badges BEFORE and AFTER update to detect newly unlocked
+      const updatedProfile = {
+        ...profile,
+        skills: newSkills,
+        total_lessons_completed: newTotalLessons,
+        total_xp: newTotalXP,
+        streak_days: newStreak,
+      };
+      const updatedProgress = [...progress, { lesson_id: lessonId, track_id: lesson.track_id }];
+      const earnedBefore = computeEarnedBadges(profile, progress);
+      const earnedAfter = computeEarnedBadges(updatedProfile, updatedProgress);
+      const unlocked = getNewlyUnlocked([...earnedBefore], earnedAfter);
 
-    await base44.entities.UserProfile.update(profile.id, {
-      skills: newSkills,
-      total_lessons_completed: newTotalLessons,
-      total_xp: newTotalXP,
-      last_active_date: new Date().toISOString().split('T')[0],
-      daily_goals_completed_today: (profile.daily_goals_completed_today || 0) + 1,
-    });
+      await base44.entities.UserProfile.update(profile.id, {
+        skills: newSkills,
+        total_lessons_completed: newTotalLessons,
+        total_xp: newTotalXP,
+        streak_days: newStreak,
+        last_active_date: today,
+        daily_goals_completed_today: (profile.daily_goals_completed_today || 0) + 1,
+      });
 
-    queryClient.invalidateQueries({ queryKey: ['userProgress'] });
-    queryClient.invalidateQueries({ queryKey: ['userProfile'] });
-    setCompleting(false);
+      queryClient.invalidateQueries({ queryKey: ['userProgress'] });
+      queryClient.invalidateQueries({ queryKey: ['userProfile'] });
 
-    if (unlocked.length > 0) {
-      setNewBadges(unlocked);
-    } else {
-      navigate(-1);
+      if (unlocked.length > 0) {
+        setNewBadges(unlocked);
+      } else {
+        navigate(-1);
+      }
+    } catch (err) {
+      console.error('Failed to complete lesson:', err);
+    } finally {
+      setCompleting(false);
     }
   };
 
@@ -222,14 +292,14 @@ export default function LessonPlayer() {
           animate={{ opacity: 1, y: 0 }}
           className="prose prose-sm max-w-none"
         >
-          <ReactMarkdown>{lesson.content || lesson.description}</ReactMarkdown>
+          <ReactMarkdown>{filterContent(lesson.content || lesson.description, activeFilter)}</ReactMarkdown>
           {activeFilter !== 'all' && (
             <div className="mt-6 p-4 rounded-2xl bg-muted border border-border">
               <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">
                 🔍 {FOCUS_FILTERS.find(f => f.id === activeFilter)?.label} Focus
               </p>
               <p className="text-sm text-muted-foreground">
-                Filter view coming soon — the full lesson content covers this perspective.
+                Showing {getFilteredSectionCount(lesson.content || lesson.description, activeFilter)} relevant section(s) filtered from the full lesson.
               </p>
             </div>
           )}

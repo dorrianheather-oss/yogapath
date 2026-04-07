@@ -17,6 +17,7 @@ import Journey from './pages/Journey';
 import Library from './pages/Library';
 import Admin from './pages/Admin';
 import Analytics from './pages/Analytics';
+import Generator from './pages/Generator';
 import AppLayout from './components/layout/AppLayout';
 
 const AuthenticatedApp = () => {
@@ -57,6 +58,7 @@ const AuthenticatedApp = () => {
         <Route path="/Journey/:journeyId" element={<Journey />} />
         <Route path="/Admin" element={<Admin />} />
         <Route path="/Analytics" element={<Analytics />} />
+        <Route path="/Generator" element={<Generator />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>

@@ -5,7 +5,7 @@ import { base44 } from '@/api/base44Client';
 import { motion } from 'framer-motion';
 import { ChevronRight, Lock, CheckCircle2, Circle, PlayCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { TRACK_ICONS } from '@/lib/curriculumData';
+import { TRACK_ICONS, MASTERY_LABELS, MASTERY_LEVEL_ORDER } from '@/lib/curriculumData';
 
 export default function Learn() {
   const navigate = useNavigate();
@@ -25,6 +25,19 @@ export default function Learn() {
   const { data: progress = [] } = useQuery({
     queryKey: ['userProgress'],
     queryFn: () => base44.entities.UserProgress.list('-created_date', 500),
+  });
+
+  // Fetch all modules and lessons once (fixes N+1 query problem)
+  const { data: allModules = [] } = useQuery({
+    queryKey: ['allModules'],
+    queryFn: () => base44.entities.CurriculumModule.list('order_index', 200),
+    enabled: tracks.length > 0,
+  });
+
+  const { data: allLessons = [] } = useQuery({
+    queryKey: ['allLessons'],
+    queryFn: () => base44.entities.CurriculumLesson.filter({ is_published: true }, 'order_index', 500),
+    enabled: tracks.length > 0,
   });
 
   const completedLessonIds = new Set(progress.map(p => p.lesson_id));
@@ -56,16 +69,7 @@ export default function Learn() {
     );
   }
 
-  const MASTERY_LABELS = {
-    foundations: 'Foundations',
-    practitioner: 'Practitioner',
-    teacher_200: 'Teacher (200hr)',
-    advanced_300: 'Advanced Teacher (300hr)',
-    mastery_500: 'Mastery (500hr)',
-  };
-
-  const levelOrder = ['foundations', 'practitioner', 'teacher_200', 'advanced_300', 'mastery_500'];
-  const tracksByLevel = levelOrder
+  const tracksByLevel = MASTERY_LEVEL_ORDER
     .map(lv => ({ lv, label: MASTERY_LABELS[lv], tracks: filteredTracks.filter(t => (t.mastery_level || 'foundations') === lv) }))
     .filter(g => g.tracks.length > 0);
   const ungrouped = filteredTracks.filter(t => !t.mastery_level);
@@ -112,6 +116,8 @@ export default function Learn() {
                   <TrackCard
                     key={track.id}
                     track={track}
+                    modules={allModules.filter(m => m.track_id === track.id)}
+                    lessons={allLessons.filter(l => l.track_id === track.id)}
                     completedLessonIds={completedLessonIds}
                     onLessonClick={(lesson, module) => navigate(`/Lesson/${lesson.id}`, { state: { lesson, module, track } })}
                   />
@@ -123,6 +129,8 @@ export default function Learn() {
           <TrackCard
             key={track.id}
             track={track}
+            modules={allModules.filter(m => m.track_id === track.id)}
+            lessons={allLessons.filter(l => l.track_id === track.id)}
             completedLessonIds={completedLessonIds}
             onLessonClick={(lesson, module) => navigate(`/Lesson/${lesson.id}`, { state: { lesson, module, track } })}
           />
@@ -132,22 +140,16 @@ export default function Learn() {
   );
 }
 
-function TrackCard({ track, completedLessonIds, onLessonClick }) {
+function TrackCard({ track, modules = [], lessons = [], completedLessonIds, onLessonClick }) {
   const [expanded, setExpanded] = useState(true);
 
-  const { data: modules = [] } = useQuery({
-    queryKey: ['modules', track.id],
-    queryFn: () => base44.entities.CurriculumModule.filter({ track_id: track.id, is_published: true }, 'order_index', 20),
-  });
-
-  const { data: allLessons = [] } = useQuery({
-    queryKey: ['trackLessons', track.id],
-    queryFn: () => base44.entities.CurriculumLesson.filter({ track_id: track.id, is_published: true }, 'order_index', 100),
-  });
+  const publishedModules = modules
+    .filter(m => m.is_published !== false)
+    .sort((a, b) => a.order_index - b.order_index);
 
   // Count completed for this track
-  const trackCompleted = allLessons.filter(l => completedLessonIds.has(l.id)).length;
-  const trackTotal = allLessons.length;
+  const trackCompleted = lessons.filter(l => completedLessonIds.has(l.id)).length;
+  const trackTotal = lessons.length;
   const progressPct = trackTotal > 0 ? Math.round((trackCompleted / trackTotal) * 100) : 0;
 
   return (
@@ -171,16 +173,16 @@ function TrackCard({ track, completedLessonIds, onLessonClick }) {
         <ChevronRight className={cn("w-4 h-4 text-muted-foreground transition-transform flex-shrink-0", expanded && "rotate-90")} />
       </button>
 
-      {expanded && modules.length > 0 && (
+      {expanded && publishedModules.length > 0 && (
         <div className="border-t border-border">
-          {modules.map((mod, mi) => {
-            const modLessons = allLessons
+          {publishedModules.map((mod, mi) => {
+            const modLessons = lessons
               .filter(l => l.module_id === mod.id)
               .sort((a, b) => a.order_index - b.order_index);
 
             // Determine unlock: first module always unlocked, subsequent need prev module complete
-            const prevModLessons = mi === 0 ? [] : allLessons
-              .filter(l => l.module_id === modules[mi - 1]?.id);
+            const prevModLessons = mi === 0 ? [] : lessons
+              .filter(l => l.module_id === publishedModules[mi - 1]?.id);
             const prevModDone = mi === 0 || prevModLessons.every(l => completedLessonIds.has(l.id));
 
             return (

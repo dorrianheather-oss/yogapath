@@ -214,3 +214,13 @@ export const DIFFICULTY_LABELS = {
   intermediate: 'Intermediate',
   advanced: 'Advanced',
 };
+
+export const MASTERY_LABELS = {
+  foundations: 'Foundations',
+  practitioner: 'Practitioner',
+  teacher_200: 'Teacher (200hr)',
+  advanced_300: 'Advanced Teacher (300hr)',
+  mastery_500: 'Mastery (500hr)',
+};
+
+export const MASTERY_LEVEL_ORDER = ['foundations', 'practitioner', 'teacher_200', 'advanced_300', 'mastery_500'];

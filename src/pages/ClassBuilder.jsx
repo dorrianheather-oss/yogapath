@@ -6,9 +6,119 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Sparkles, Loader2, Plus, ChevronDown, ChevronUp, Trash2, Save, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { Sparkles, Loader2, Plus, ChevronDown, ChevronUp, Trash2, Save, ArrowLeft, CheckCircle2, Download } from 'lucide-react';
 import { CLASS_THEMES, CLASS_SECTIONS } from '@/lib/yogaData';
 import { cn } from '@/lib/utils';
+import { jsPDF } from 'jspdf';
+
+function exportClassPDF(cls) {
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const gold = [196, 148, 90];
+  const dark = [17, 17, 16];
+  const W = 210;
+
+  // Gold header bar
+  doc.setFillColor(...gold);
+  doc.rect(0, 0, W, 22, 'F');
+
+  // Title
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(15);
+  doc.setTextColor(...dark);
+  doc.text(cls.title || 'Yoga Class Sequence', 14, 14);
+
+  // Meta row
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(80, 70, 60);
+  const metaY = 30;
+  doc.text(`Theme: ${cls.theme || '—'}`, 14, metaY);
+  doc.text(`Difficulty: ${cls.difficulty || '—'}`, 80, metaY);
+  doc.text(`Duration: ${cls.duration_minutes || '—'} min`, 145, metaY);
+
+  let y = 40;
+  (cls.sections || []).forEach((section, si) => {
+    if (y > 265) { doc.addPage(); y = 20; }
+
+    // Section header
+    doc.setFillColor(30, 28, 24);
+    doc.roundedRect(14, y, W - 28, 8, 2, 2, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(240, 237, 232);
+    doc.text(`${si + 1}. ${section.name}`, 18, y + 5.5);
+    y += 12;
+
+    (section.poses || []).forEach((pose) => {
+      if (y > 268) { doc.addPage(); y = 20; }
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(30, 28, 24);
+      doc.text(`${pose.pose_name}`, 16, y);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(100, 90, 80);
+      doc.text(pose.duration || '', 160, y);
+      y += 5;
+
+      if (pose.cues) {
+        const lines = doc.splitTextToSize(`Cues: ${pose.cues}`, W - 36);
+        doc.setFontSize(7.5);
+        doc.setTextColor(120, 110, 95);
+        doc.text(lines, 18, y);
+        y += lines.length * 4;
+      }
+      if (pose.breath) {
+        const lines = doc.splitTextToSize(`Breath: ${pose.breath}`, W - 36);
+        doc.text(lines, 18, y);
+        y += lines.length * 4;
+      }
+      y += 3;
+    });
+
+    if (section.philosophy_note) {
+      if (y > 265) { doc.addPage(); y = 20; }
+      doc.setFillColor(245, 240, 230);
+      const noteLines = doc.splitTextToSize(section.philosophy_note, W - 40);
+      doc.roundedRect(14, y - 1, W - 28, noteLines.length * 4 + 5, 2, 2, 'F');
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(7.5);
+      doc.setTextColor(120, 100, 70);
+      doc.text(noteLines, 18, y + 3);
+      y += noteLines.length * 4 + 8;
+    }
+
+    y += 4;
+  });
+
+  if (cls.notes) {
+    if (y > 255) { doc.addPage(); y = 20; }
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(30, 28, 24);
+    doc.text('Notes:', 14, y);
+    y += 5;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(80, 70, 60);
+    const noteLines = doc.splitTextToSize(cls.notes, W - 28);
+    doc.text(noteLines, 14, y);
+  }
+
+  // Footer
+  const pages = doc.internal.getNumberOfPages();
+  for (let p = 1; p <= pages; p++) {
+    doc.setPage(p);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(160, 150, 135);
+    doc.text('YogaPath', 14, 292);
+    doc.text(`Page ${p} of ${pages}`, W - 14, 292, { align: 'right' });
+  }
+
+  doc.save(`${(cls.title || 'class').replace(/\s+/g, '_')}.pdf`);
+}
 
 export default function ClassBuilder() {
   const [mode, setMode] = useState('list'); // list | create | view
@@ -105,6 +215,9 @@ Make the sequence flow logically with good transitions. Include warm-up, build t
             <p className="text-sm">{viewingClass.notes}</p>
           </div>
         )}
+        <Button onClick={() => exportClassPDF(viewingClass)} variant="outline" className="w-full h-12 rounded-2xl mt-6 gap-2">
+          <Download className="w-4 h-4" /> Export PDF
+        </Button>
       </div>
     );
   }
@@ -181,9 +294,14 @@ Make the sequence flow logically with good transitions. Include warm-up, build t
               <h2 className="text-lg font-bold">{generatedClass.title}</h2>
             </div>
             <ClassSections sections={generatedClass.sections} expandedSection={expandedSection} setExpandedSection={setExpandedSection} />
-            <Button onClick={saveClass} className="w-full h-14 rounded-2xl text-base font-semibold mt-6">
-              <Save className="w-5 h-5 mr-2" /> Save Class
-            </Button>
+            <div className="flex gap-3 mt-6">
+              <Button onClick={saveClass} className="flex-1 h-14 rounded-2xl text-base font-semibold">
+                <Save className="w-5 h-5 mr-2" /> Save Class
+              </Button>
+              <Button onClick={() => exportClassPDF(generatedClass)} variant="outline" className="h-14 px-5 rounded-2xl">
+                <Download className="w-5 h-5" />
+              </Button>
+            </div>
           </>
         )}
       </div>

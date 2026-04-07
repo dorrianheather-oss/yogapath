@@ -2,11 +2,12 @@ import React, { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { motion } from 'framer-motion';
-import { Plus, ChevronDown, ChevronRight, Edit2, Trash2, Eye, EyeOff, Loader2, Sparkles, BookOpen, Layers, FileText } from 'lucide-react';
+import { Plus, ChevronDown, ChevronRight, Edit2, Trash2, Eye, EyeOff, Loader2, Sparkles, BookOpen, Layers, FileText, Users, Copy, Check, Shield, ShieldOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { SEED_CURRICULUM } from '@/lib/curriculumData';
 import TrackForm from '@/components/admin/TrackForm';
+import CourseGenerator from '@/components/admin/CourseGenerator';
 import ModuleForm from '@/components/admin/ModuleForm';
 import LessonForm from '@/components/admin/LessonForm';
 
@@ -18,8 +19,14 @@ const MASTERY_LEVELS = [
   { value: 'mastery_500', label: 'Mastery (500hr)' },
 ];
 
+const ADMIN_TABS = [
+  { id: 'curriculum', label: 'Curriculum', icon: BookOpen },
+  { id: 'students', label: 'Students', icon: Users },
+];
+
 export default function Admin() {
   const queryClient = useQueryClient();
+  const [activeTab, setActiveTab] = useState('curriculum');
   const [seeding, setSeeding] = useState(false);
   const [modal, setModal] = useState(null);
   const [expandedTracks, setExpandedTracks] = useState({});
@@ -46,7 +53,7 @@ export default function Admin() {
     queryFn: () => base44.entities.CurriculumLesson.list('order_index', 500),
   });
 
-  if (profile && profile.role !== 'admin') {
+  if (!isLoading && profile && profile.role !== 'admin') {
     return (
       <div className="flex flex-col items-center justify-center h-screen px-6 text-center">
         <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mb-4 text-3xl">🔒</div>
@@ -108,17 +115,68 @@ export default function Admin() {
   return (
     <div className="px-5 pt-12 pb-24 max-w-lg mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-2xl font-bold">Admin Portal</h1>
-          <p className="text-sm text-muted-foreground">Manage curriculum</p>
+          <p className="text-sm text-muted-foreground">Manage curriculum &amp; students</p>
         </div>
-        <Button onClick={() => setModal({ type: 'track' })} size="sm" className="rounded-xl gap-1.5">
-          <Plus className="w-4 h-4" /> Track
-        </Button>
+        {activeTab === 'curriculum' && (
+          <Button onClick={() => setModal({ type: 'track' })} size="sm" className="rounded-xl gap-1.5">
+            <Plus className="w-4 h-4" /> Track
+          </Button>
+        )}
       </div>
 
-      {/* Seed button */}
+      {/* Tab switcher */}
+      <div className="flex gap-2 mb-6 p-1 rounded-2xl bg-muted">
+        {ADMIN_TABS.map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            onClick={() => setActiveTab(id)}
+            className={cn(
+              'flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-sm font-medium transition-all',
+              activeTab === id ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground'
+            )}
+          >
+            <Icon className="w-4 h-4" />
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'students' && <StudentsPanel />}
+
+      {activeTab === 'curriculum' && <>
+
+      <CourseGenerator onCourseGenerated={async (course, input) => {
+  const levelMap = { foundation: 'foundations', development: 'practitioner', advanced: 'teacher_200', mastery: 'mastery_500' };
+  const track = await base44.entities.CurriculumTrack.create({
+    title: course.title,
+    description: course.description,
+    category: input.pillar.toLowerCase(),
+    mastery_level: levelMap[input.level] || 'foundations',
+    is_published: false,
+    order_index: tracks.length,
+  });
+  for (let i = 0; i < course.lessons.length; i++) {
+    const lesson = course.lessons[i];
+    await base44.entities.CurriculumLesson.create({
+      title: lesson.title,
+      track_id: track.id,
+      content: lesson.script,
+      practice_prompt: lesson.practice_prompt || '',
+      quiz_questions: lesson.quiz_questions || [],
+      format: lesson.format,
+      duration_minutes: lesson.duration_minutes || 5,
+      is_published: false,
+      order_index: i,
+    });
+  }
+  queryClient.invalidateQueries({ queryKey: ['allTracks'] });
+  queryClient.invalidateQueries({ queryKey: ['allLessons'] });
+}} />
+
+{/* Seed button */}
       {tracks.length === 0 && !isLoading && (
         <div className="text-center py-10 border-2 border-dashed border-border rounded-2xl mb-6">
           <div className="text-3xl mb-3">🌱</div>
@@ -266,6 +324,187 @@ export default function Admin() {
       )}
       {modal?.type === 'lesson' && (
         <LessonForm data={modal.data} moduleId={modal.parentId} trackId={modal.trackId} onClose={() => setModal(null)} onSave={() => { queryClient.invalidateQueries({ queryKey: ['allLessons'] }); setModal(null); }} />
+      )}
+      </>}
+    </div>
+  );
+}
+
+// ─── Students Panel ──────────────────────────────────────────────────────────
+function StudentsPanel() {
+  const queryClient = useQueryClient();
+  const [copied, setCopied] = useState(false);
+  const [search, setSearch] = useState('');
+  const [updatingId, setUpdatingId] = useState(null);
+
+  const { data: allProfiles = [], isLoading } = useQuery({
+    queryKey: ['allStudentProfiles'],
+    queryFn: () => base44.entities.UserProfile.list('-created_date', 100),
+  });
+
+  const { data: allProgress = [] } = useQuery({
+    queryKey: ['allUserProgress'],
+    queryFn: () => base44.entities.UserProgress.list('-completed_at', 1000),
+  });
+
+  const filtered = allProfiles.filter(p =>
+    !search || (p.full_name || '').toLowerCase().includes(search.toLowerCase()) || (p.email || '').toLowerCase().includes(search.toLowerCase())
+  );
+
+  // Progress count per user
+  const progressByUser = allProgress.reduce((acc, p) => {
+    acc[p.created_by] = (acc[p.created_by] || 0) + 1;
+    return acc;
+  }, {});
+
+  const copyInviteLink = () => {
+    const url = window.location.origin;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  const toggleAdmin = async (profile) => {
+    setUpdatingId(profile.id);
+    try {
+      const newRole = profile.role === 'admin' ? 'user' : 'admin';
+      await base44.entities.UserProfile.update(profile.id, { role: newRole });
+      queryClient.invalidateQueries({ queryKey: ['allStudentProfiles'] });
+    } catch (err) {
+      console.error('Failed to update role:', err);
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const setUserType = async (profile, userType) => {
+    setUpdatingId(profile.id);
+    try {
+      await base44.entities.UserProfile.update(profile.id, { user_type: userType });
+      queryClient.invalidateQueries({ queryKey: ['allStudentProfiles'] });
+    } catch (err) {
+      console.error('Failed to update user type:', err);
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  return (
+    <div>
+      {/* Invite link */}
+      <div className="p-4 rounded-2xl border border-border bg-card mb-5">
+        <p className="text-sm font-semibold mb-1">Invite Students</p>
+        <p className="text-xs text-muted-foreground mb-3">
+          Share your app link — students sign up and appear here automatically. You can then set their role and access level.
+        </p>
+        <button
+          onClick={copyInviteLink}
+          className="flex items-center gap-2 w-full px-3 py-2.5 rounded-xl bg-muted text-sm font-medium hover:bg-muted/80 transition-all"
+        >
+          {copied ? <Check className="w-4 h-4 text-primary" /> : <Copy className="w-4 h-4 text-muted-foreground" />}
+          <span className="flex-1 text-left text-muted-foreground truncate">{window.location.origin}</span>
+          <span className={cn('text-xs font-semibold', copied ? 'text-primary' : 'text-foreground')}>
+            {copied ? 'Copied!' : 'Copy link'}
+          </span>
+        </button>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-3 gap-2 mb-5">
+        {[
+          { label: 'Total', value: allProfiles.length },
+          { label: 'Teachers', value: allProfiles.filter(p => p.user_type === 'teacher').length },
+          { label: 'Admins', value: allProfiles.filter(p => p.role === 'admin').length },
+        ].map(s => (
+          <div key={s.label} className="p-3 rounded-xl bg-card border border-border text-center">
+            <p className="text-xl font-bold">{s.value}</p>
+            <p className="text-xs text-muted-foreground">{s.label}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Search */}
+      <input
+        value={search}
+        onChange={e => setSearch(e.target.value)}
+        placeholder="Search by name or email…"
+        className="w-full rounded-xl border border-border bg-card px-3 py-2.5 text-sm mb-4 focus:outline-none focus:ring-1 focus:ring-primary"
+      />
+
+      {/* Student list */}
+      {isLoading ? (
+        <div className="flex justify-center py-10">
+          <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-12 text-muted-foreground text-sm">No students yet</div>
+      ) : (
+        <div className="space-y-2">
+          {filtered.map(profile => {
+            const lessonCount = progressByUser[profile.created_by] || 0;
+            const isUpdating = updatingId === profile.id;
+            return (
+              <div key={profile.id} className="p-4 rounded-2xl border border-border bg-card">
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center text-sm font-bold text-primary flex-shrink-0">
+                    {(profile.full_name || profile.email || '?')[0].toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-semibold text-sm truncate">{profile.full_name || 'Unnamed'}</p>
+                      {profile.role === 'admin' && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/20 text-primary font-semibold">Admin</span>
+                      )}
+                      {profile.user_type === 'teacher' && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-accent text-accent-foreground font-semibold">Teacher</span>
+                      )}
+                    </div>
+                    {profile.email && <p className="text-xs text-muted-foreground truncate">{profile.email}</p>}
+                    <div className="flex items-center gap-3 mt-1">
+                      <span className="text-xs text-muted-foreground">🔥 {profile.streak_days || 0} day streak</span>
+                      <span className="text-xs text-muted-foreground">📚 {lessonCount} lessons</span>
+                      <span className="text-xs text-muted-foreground">⚡ {profile.total_xp || 0} XP</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Role controls */}
+                <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border">
+                  <span className="text-xs text-muted-foreground mr-1">Access:</span>
+                  <button
+                    onClick={() => setUserType(profile, 'student')}
+                    disabled={isUpdating}
+                    className={cn(
+                      'px-2.5 py-1 rounded-lg text-xs font-medium transition-all',
+                      (profile.user_type || 'student') === 'student' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                    )}
+                  >Student</button>
+                  <button
+                    onClick={() => setUserType(profile, 'teacher')}
+                    disabled={isUpdating}
+                    className={cn(
+                      'px-2.5 py-1 rounded-lg text-xs font-medium transition-all',
+                      profile.user_type === 'teacher' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                    )}
+                  >Teacher</button>
+                  <div className="flex-1" />
+                  <button
+                    onClick={() => toggleAdmin(profile)}
+                    disabled={isUpdating}
+                    className={cn(
+                      'flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-all',
+                      profile.role === 'admin' ? 'bg-destructive/15 text-destructive' : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                    )}
+                  >
+                    {isUpdating ? <Loader2 className="w-3 h-3 animate-spin" /> : profile.role === 'admin' ? <ShieldOff className="w-3 h-3" /> : <Shield className="w-3 h-3" />}
+                    {profile.role === 'admin' ? 'Remove admin' : 'Make admin'}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       )}
     </div>
   );

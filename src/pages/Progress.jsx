@@ -26,8 +26,18 @@ export default function Progress() {
   const earnedBadgeIds = computeEarnedBadges(profile, progress);
   const earnedCount = BADGES.filter(b => earnedBadgeIds.has(b.id)).length;
 
-  // Count completions by track category
-  const catCounts = {};
+  const { data: tracks = [] } = useQuery({
+    queryKey: ['curriculumTracks'],
+    queryFn: () => base44.entities.CurriculumTrack.filter({ is_published: true }, 'order_index', 50),
+  });
+
+  // Build track_id -> category map, then count completed lessons per category
+  const trackCategoryMap = Object.fromEntries(tracks.map(t => [t.id, t.category]));
+  const catCounts = progress.reduce((acc, p) => {
+    const category = trackCategoryMap[p.track_id];
+    if (category) acc[category] = (acc[category] || 0) + 1;
+    return acc;
+  }, {});
 
   const statCards = [
     { label: 'Total XP', value: profile?.total_xp || 0, icon: Star, color: 'text-foreground bg-muted' },
