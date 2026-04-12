@@ -73,7 +73,7 @@ export default function DailyPractice({ profile, allLessons, tracks, progress })
     // Build a prompt to get a structured 10-min plan
     const skillSummary = sorted.map(c => `${c}: ${skills[c] || 0}/100`).join(', ');
 
-    const result = await base44.integrations.Core.InvokeLLM({
+    const result = await base44.asServiceRole.integrations.Core.InvokeLLM({
       prompt: `You are a yoga curriculum advisor. A ${profile?.user_type || 'student'} with ${profile?.experience_level || 'beginner'} experience has these skill levels: ${skillSummary}.
 
 Create a personalized 10-minute daily practice sequence targeting their weakest areas (${weakCategories.join(', ')}).

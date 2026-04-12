@@ -31,7 +31,7 @@ export default function TagInput({ tags = [], onChange, context = '' }) {
   const suggestTags = async () => {
     if (!context) return;
     setSuggesting(true);
-    const result = await base44.integrations.Core.InvokeLLM({
+    const result = await base44.asServiceRole.integrations.Core.InvokeLLM({
       prompt: `Suggest 4-6 concise, lowercase tags for this yoga curriculum item: "${context}". 
 Return only relevant tags like: anatomy, alignment, breathwork, beginner, hip-opening, etc. 
 Keep each tag 1-3 words max.`,

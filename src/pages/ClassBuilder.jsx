@@ -138,7 +138,7 @@ export default function ClassBuilder() {
 
   const generateClass = async () => {
     setGenerating(true);
-    const result = await base44.integrations.Core.InvokeLLM({
+    const result = await base44.asServiceRole.integrations.Core.InvokeLLM({
       prompt: `Create a complete yoga class sequence with theme "${theme || 'Balanced Flow'}", difficulty "${difficulty}", duration ${duration} minutes.
 
 Include these sections: ${CLASS_SECTIONS.join(', ')}

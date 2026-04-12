@@ -253,12 +253,4 @@ export default function CourseGenerator({ onCourseGenerated }) {
         </div>
       ))}
 
-      <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
-        <button style={{ ...s.btn, flex: 1 }} onClick={() => saveCourse(course)}>Save to curriculum →</button>
-        <button style={s.btnGhost} onClick={handleGenerate}>Regenerate</button>
-      </div>
-    </div>
-  );
-
-  return null;
-}
+      <div style={{ display: "flex", gap: 10, ma

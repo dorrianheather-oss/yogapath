@@ -251,7 +251,7 @@ function VideoScriptGenerator() {
     setScript(null);
     try {
       const lesson = lessons.find(l => l.id === selectedLesson);
-      const result = await base44.integrations.Core.InvokeLLM({
+      const result = await base44.asServiceRole.integrations.Core.InvokeLLM({
         prompt: `You are a yoga video scriptwriter. Write a complete, camera-ready video script for a yoga lesson about "${lesson?.title}".
 
 The script must have exactly these sections in order: HOOK, INTRO, TEACH, PRACTICE, OUTRO.

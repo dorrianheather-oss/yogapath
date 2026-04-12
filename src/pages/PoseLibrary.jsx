@@ -22,7 +22,7 @@ export default function PoseLibrary() {
 
   const generatePoses = async () => {
     setGenerating(true);
-    const result = await base44.integrations.Core.InvokeLLM({
+    const result = await base44.asServiceRole.integrations.Core.InvokeLLM({
       prompt: `Generate 8 diverse yoga poses with detailed information. Include a mix of categories (standing, seated, balance, backbend, forward_fold, twist). For each pose provide:
 - name (English)
 - sanskrit_name

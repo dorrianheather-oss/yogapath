@@ -37,7 +37,7 @@ export default function Lessons() {
     const cat = CATEGORIES[activeCategory];
     const level = profile?.skills?.[activeCategory] > 60 ? 'advanced' : profile?.skills?.[activeCategory] > 30 ? 'intermediate' : 'beginner';
 
-    const result = await base44.integrations.Core.InvokeLLM({
+    const result = await base44.asServiceRole.integrations.Core.InvokeLLM({
       prompt: `Generate a short yoga lesson (2-5 minutes reading time) for category "${cat.label}" at ${level} level.
 
 Include:

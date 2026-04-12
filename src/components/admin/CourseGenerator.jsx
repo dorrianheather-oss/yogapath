@@ -1,5 +1,4 @@
 import { useState } from "react";
-
 const PILLARS = [
   "Asana", "Pranayama", "Meditation",
   "Philosophy", "Anatomy", "Teaching", "Beyond the Mat"
@@ -16,6 +15,8 @@ const FORMATS = [
   "Short video", "B-roll voiceover", "Reading block",
   "Breathwork practice", "Somatic prompt", "Reflective quiz", "Music bed practice"
 ];
+
+import { base44 } from '@/api/base44Client';
 
 async function generateCourseWithClaude(input) {
   const prompt = `You are an expert yoga curriculum designer. Generate a complete, authentic course structure based on these inputs:
@@ -34,43 +35,34 @@ Rules:
 - Movement/asana gets short video + somatic prompt
 - Assessment gets reflective quiz
 - Opening/closing gets music bed practice
-- Be specific, embodied, and authentic — not generic
+- Be specific, embodied, and authentic — not generic`;
 
-Respond ONLY with a JSON object in this exact format, no markdown backticks:
-{
-  "title": "course title",
-  "description": "2 sentence course description",
-  "lessons": [
-    {
-      "title": "lesson title",
-      "format": "one of: Short video, B-roll voiceover, Reading block, Breathwork practice, Somatic prompt, Reflective quiz, Music bed practice",
-      "duration_minutes": 5,
-      "script": "full lesson script or content (2-3 paragraphs)",
-      "practice_prompt": "specific embodied practice instruction if applicable",
-      "quiz_questions": ["question 1", "question 2"]
-    }
-  ]
-}`;
-
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": import.meta.env.VITE_ANTHROPIC_API_KEY,
-      "anthropic-version": "2023-06-01",
-      "anthropic-dangerous-direct-browser-access": "true",
+  return await base44.asServiceRole.integrations.Core.InvokeLLM({
+    prompt,
+    response_json_schema: {
+      type: "object",
+      properties: {
+        title: { type: "string" },
+        description: { type: "string" },
+        lessons: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              title: { type: "string" },
+              format: { type: "string" },
+              duration_minutes: { type: "number" },
+              script: { type: "string" },
+              practice_prompt: { type: "string" },
+              quiz_questions: { type: "array", items: { type: "string" } },
+            },
+            required: ["title", "format", "duration_minutes", "script"],
+          },
+        },
+      },
+      required: ["title", "description", "lessons"],
     },
-    body: JSON.stringify({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 4000,
-      messages: [{ role: "user", content: prompt }],
-    }),
   });
-
-  const data = await response.json();
-  const text = data.content[0].text;
-  const clean = text.replace(/```json|```/g, "").trim();
-  return JSON.parse(clean);
 }
 
 export default function CourseGenerator({ onCourseGenerated }) {
