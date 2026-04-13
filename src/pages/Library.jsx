@@ -32,7 +32,7 @@ export default function Library() {
     queryKey: ['savedLessons', savedIds.join(',')],
     queryFn: async () => {
       if (!savedIds.length) return [];
-      const all = await base44.entities.Lesson.list('-created_date', 200);
+      const all = await base44.entities.CurriculumLesson.list('-created_date', 200);
       return all.filter(l => savedIds.includes(l.id));
     },
     enabled: !!profile,

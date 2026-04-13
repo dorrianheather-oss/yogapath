@@ -28,7 +28,7 @@ export default function Journey() {
 
   const { data: lessons = [] } = useQuery({
     queryKey: ['lessons', journey?.categoryKey, selectedFocus],
-    queryFn: () => base44.entities.Lesson.filter({
+    queryFn: () => base44.entities.CurriculumLesson.filter({
       category: journey?.categoryKey,
       ...(selectedFocus ? { pose_tags: selectedFocus } : {}),
     }),
@@ -61,7 +61,7 @@ export default function Journey() {
     if (!activeLesson || !profile) return;
     const today = new Date().toISOString().split('T')[0];
 
-    await base44.entities.LessonCompletion.create({
+    await base44.entities.UserProgress.create({
       lesson_id: activeLesson.id,
       category: journey.categoryKey,
       xp_earned: activeLesson.xp_reward || 15,

@@ -23,7 +23,7 @@ export default function Lessons() {
 
   const { data: lessons = [], isLoading } = useQuery({
     queryKey: ['lessons', activeCategory],
-    queryFn: () => base44.entities.Lesson.filter({ category: activeCategory }),
+    queryFn: () => base44.entities.CurriculumLesson.filter({ category: activeCategory }),
   });
 
   const { data: profiles = [] } = useQuery({
@@ -66,7 +66,7 @@ Format the content in markdown. Keep it concise and practical.`,
       },
     });
 
-    const lesson = await base44.entities.Lesson.create({
+    const lesson = await base44.entities.CurriculumLesson.create({
       ...result,
       category: activeCategory,
       for_user_type: 'both',
@@ -81,7 +81,7 @@ Format the content in markdown. Keep it concise and practical.`,
 
   const completeLesson = async (lesson) => {
     const today = new Date().toISOString().split('T')[0];
-    await base44.entities.LessonCompletion.create({
+    await base44.entities.UserProgress.create({
       lesson_id: lesson.id,
       category: activeCategory,
       xp_earned: lesson.xp_reward || 10,
