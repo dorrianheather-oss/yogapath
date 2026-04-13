@@ -10,6 +10,7 @@ import TrackForm from '@/components/admin/TrackForm';
 import CourseGenerator from '@/components/admin/CourseGenerator';
 import ModuleForm from '@/components/admin/ModuleForm';
 import LessonForm from '@/components/admin/LessonForm';
+import CurriculumPlanner from '@/components/admin/CurriculumPlanner';
 
 const MASTERY_LEVELS = [
   { value: 'foundations', label: 'Foundations' },
@@ -21,6 +22,7 @@ const MASTERY_LEVELS = [
 
 const ADMIN_TABS = [
   { id: 'curriculum', label: 'Curriculum', icon: BookOpen },
+  { id: 'planner', label: 'Planner', icon: Sparkles },
   { id: 'students', label: 'Students', icon: Users },
 ];
 
@@ -145,6 +147,16 @@ export default function Admin() {
       </div>
 
       {activeTab === 'students' && <StudentsPanel />}
+
+      {activeTab === 'planner' && (
+        <div className="mt-4">
+          <div className="mb-4">
+            <h2 className="text-base font-semibold">Curriculum Planner</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">AI-guided flow: pick a track, generate objectives, build the lesson tree, push to production.</p>
+          </div>
+          <CurriculumPlanner />
+        </div>
+      )}
 
       {activeTab === 'curriculum' && <>
 
