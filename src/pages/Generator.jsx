@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { motion, AnimatePresence } from 'framer-motion';
-import { BookOpen, Video, Sparkles, Loader2, CheckCircle2, Play, Pause, ChevronDown, ChevronUp } from 'lucide-react';
+import { BookOpen, Video, Sparkles, Loader2, CheckCircle2, Play, Pause, ChevronDown, ChevronUp, Film, AlertCircle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 const TABS = [
   { id: 'content', label: 'Lesson Content', icon: BookOpen },
   { id: 'video', label: 'Video Scripts', icon: Video },
+  { id: 'heygen', label: 'HeyGen AI', icon: Film },
 ];
 
 export default function Generator() {
@@ -21,13 +22,13 @@ export default function Generator() {
       <p className="text-sm text-muted-foreground mb-6">Create AI-powered lesson content and video scripts</p>
 
       {/* Tab switcher */}
-      <div className="flex gap-2 mb-8 p-1 rounded-2xl bg-muted">
+      <div className="flex gap-1.5 mb-8 p-1 rounded-2xl bg-muted overflow-x-auto">
         {TABS.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
             onClick={() => setActiveTab(id)}
             className={cn(
-              'flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-medium transition-all',
+              'flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl text-sm font-medium transition-all whitespace-nowrap',
               activeTab === id ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground'
             )}
           >
@@ -39,6 +40,229 @@ export default function Generator() {
 
       {activeTab === 'content' && <ContentGenerator />}
       {activeTab === 'video' && <VideoScriptGenerator />}
+      {activeTab === 'heygen' && <HeyGenVideoGenerator />}
+    </div>
+  );
+}
+
+// ─── HeyGen Video Generator ──────────────────────────────────────────────────
+function HeyGenVideoGenerator() {
+  const [avatarId, setAvatarId] = useState(() => localStorage.getItem('yp_heygen_avatar_id') || '');
+  const [voiceId, setVoiceId] = useState(() => localStorage.getItem('yp_heygen_voice_id') || '');
+  const [selectedLesson, setSelectedLesson] = useState(null);
+  const [scriptText, setScriptText] = useState('');
+  const [status, setStatus] = useState('idle'); // idle | generating | polling | done | error
+  const [videoId, setVideoId] = useState('');
+  const [videoUrl, setVideoUrl] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
+  const [pollCount, setPollCount] = useState(0);
+  const pollRef = useRef(null);
+
+  const { data: tracks = [] } = useQuery({
+    queryKey: ['curriculumTracks'],
+    queryFn: () => base44.entities.CurriculumTrack.filter({ is_published: true }, 'order_index', 50),
+  });
+  const { data: allLessons = [] } = useQuery({
+    queryKey: ['allLessonsGen'],
+    queryFn: () => base44.entities.CurriculumLesson.filter({ is_published: true }, 'order_index', 200),
+  });
+
+  // Persist avatar/voice IDs to localStorage
+  useEffect(() => { if (avatarId) localStorage.setItem('yp_heygen_avatar_id', avatarId); }, [avatarId]);
+  useEffect(() => { if (voiceId) localStorage.setItem('yp_heygen_voice_id', voiceId); }, [voiceId]);
+
+  // Auto-fill script from lesson
+  useEffect(() => {
+    if (selectedLesson) {
+      const text = selectedLesson.voiceover_script || selectedLesson.description || selectedLesson.title || '';
+      setScriptText(text);
+    }
+  }, [selectedLesson]);
+
+  // Cleanup poll on unmount
+  useEffect(() => () => { if (pollRef.current) clearTimeout(pollRef.current); }, []);
+
+  const pollStatus = useCallback(async (vid, lessonId, count = 0) => {
+    if (count > 60) {
+      setStatus('error');
+      setErrorMsg('Video is taking too long. Check your HeyGen dashboard directly.');
+      return;
+    }
+    try {
+      const res = await base44.functions.pollHeygenVideo({ video_id: vid, lesson_id: lessonId });
+      setPollCount(count);
+      if (res.status === 'completed' && res.video_url) {
+        setVideoUrl(res.video_url);
+        setStatus('done');
+      } else if (res.status === 'failed') {
+        setStatus('error');
+        setErrorMsg('HeyGen reported the video as failed. Check your avatar ID and script length.');
+      } else {
+        // still processing — poll again in 8 seconds
+        pollRef.current = setTimeout(() => pollStatus(vid, lessonId, count + 1), 8000);
+      }
+    } catch (e) {
+      setStatus('error');
+      setErrorMsg(`Poll error: ${e.message}`);
+    }
+  }, []);
+
+  const generate = async () => {
+    if (!avatarId.trim()) { setErrorMsg('Avatar ID is required'); return; }
+    if (!scriptText.trim()) { setErrorMsg('Script text is required'); return; }
+
+    setStatus('generating');
+    setErrorMsg('');
+    setVideoId('');
+    setVideoUrl('');
+
+    try {
+      const res = await base44.functions.generateHeygenVideo({
+        lesson_id: selectedLesson?.id || null,
+        script_text: scriptText.trim(),
+        avatar_id: avatarId.trim(),
+        voice_id: voiceId.trim() || undefined,
+      });
+
+      if (res.error) {
+        setStatus('error');
+        setErrorMsg(res.error + (res.heygen_data ? `\n\nFull response: ${JSON.stringify(res.heygen_data, null, 2)}` : ''));
+        return;
+      }
+
+      setVideoId(res.video_id);
+      setStatus('polling');
+      setPollCount(0);
+      pollStatus(res.video_id, selectedLesson?.id || null, 0);
+    } catch (e) {
+      setStatus('error');
+      setErrorMsg(e.message || 'Unknown error');
+    }
+  };
+
+  const reset = () => {
+    if (pollRef.current) clearTimeout(pollRef.current);
+    setStatus('idle');
+    setVideoId('');
+    setVideoUrl('');
+    setErrorMsg('');
+    setPollCount(0);
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Credentials */}
+      <div className="bg-card border border-border rounded-xl p-4 space-y-3">
+        <p className="text-xs text-muted-foreground uppercase tracking-widest font-medium">HeyGen Settings</p>
+        <div>
+          <label className="text-xs text-muted-foreground mb-1 block">Avatar ID <span className="text-primary">*</span></label>
+          <input
+            value={avatarId}
+            onChange={e => setAvatarId(e.target.value)}
+            placeholder="e.g. Abigail_expressive_2024112501"
+            className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm outline-none focus:border-primary transition-colors font-mono"
+          />
+          <p className="text-xs text-muted-foreground mt-1">Find in HeyGen dashboard → Avatars → click avatar → copy ID from URL</p>
+        </div>
+        <div>
+          <label className="text-xs text-muted-foreground mb-1 block">Voice ID <span className="text-muted-foreground">(optional — uses avatar default if blank)</span></label>
+          <input
+            value={voiceId}
+            onChange={e => setVoiceId(e.target.value)}
+            placeholder="e.g. 2d5b0e6cf36f460aa7fc47e3eee4ba54"
+            className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm outline-none focus:border-primary transition-colors font-mono"
+          />
+          <p className="text-xs text-muted-foreground mt-1">HeyGen dashboard → Voices → copy voice ID. Leave blank to use avatar's built-in voice.</p>
+        </div>
+      </div>
+
+      {/* Lesson picker */}
+      <div className="bg-card border border-border rounded-xl p-4 space-y-2">
+        <p className="text-xs text-muted-foreground uppercase tracking-widest font-medium">Lesson</p>
+        <select
+          value={selectedLesson?.id || ''}
+          onChange={e => {
+            const l = allLessons.find(x => x.id === e.target.value);
+            setSelectedLesson(l || null);
+          }}
+          className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm outline-none focus:border-primary transition-colors"
+        >
+          <option value="">— Select a lesson (or type script below) —</option>
+          {allLessons.map(l => (
+            <option key={l.id} value={l.id}>{l.title}</option>
+          ))}
+        </select>
+      </div>
+
+      {/* Script */}
+      <div className="bg-card border border-border rounded-xl p-4 space-y-2">
+        <div className="flex items-center justify-between">
+          <p className="text-xs text-muted-foreground uppercase tracking-widest font-medium">Script</p>
+          <span className="text-xs text-muted-foreground">{scriptText.length} chars · ~{Math.round(scriptText.split(' ').filter(Boolean).length / 130)} min</span>
+        </div>
+        <textarea
+          value={scriptText}
+          onChange={e => setScriptText(e.target.value)}
+          placeholder="Type or paste the script for your avatar to read..."
+          rows={6}
+          className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm outline-none focus:border-primary transition-colors resize-none"
+        />
+      </div>
+
+      {/* Error */}
+      {errorMsg && (
+        <div className="bg-destructive/10 border border-destructive/30 rounded-xl p-4 flex items-start gap-3">
+          <AlertCircle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
+          <pre className="text-xs text-destructive whitespace-pre-wrap break-all">{errorMsg}</pre>
+        </div>
+      )}
+
+      {/* Status */}
+      {status === 'polling' && (
+        <div className="bg-card border border-border rounded-xl p-4 flex items-center gap-3">
+          <Loader2 className="w-4 h-4 animate-spin text-primary" />
+          <div>
+            <p className="text-sm font-medium">Generating video...</p>
+            <p className="text-xs text-muted-foreground">Polling HeyGen every 8s · check {pollCount + 1}</p>
+          </div>
+          <span className="ml-auto text-xs text-muted-foreground font-mono">{videoId}</span>
+        </div>
+      )}
+
+      {status === 'done' && videoUrl && (
+        <div className="bg-card border border-primary/30 rounded-xl p-4 space-y-3">
+          <div className="flex items-center gap-2 text-primary text-sm font-medium">
+            <CheckCircle2 className="w-4 h-4" /> Video ready
+          </div>
+          <video src={videoUrl} controls className="w-full rounded-lg" />
+          <a href={videoUrl} target="_blank" rel="noreferrer" className="text-xs text-primary underline">Open in new tab</a>
+        </div>
+      )}
+
+      {/* Actions */}
+      <div className="flex gap-2">
+        {(status === 'error' || status === 'done') && (
+          <button onClick={reset} className="px-4 py-2.5 rounded-xl border border-border text-sm text-muted-foreground flex items-center gap-2">
+            <RefreshCw className="w-3.5 h-3.5" /> Reset
+          </button>
+        )}
+        <button
+          onClick={generate}
+          disabled={status === 'generating' || status === 'polling' || !avatarId.trim() || !scriptText.trim()}
+          className={cn(
+            'flex-1 py-2.5 rounded-xl font-medium text-sm flex items-center justify-center gap-2 transition-all',
+            status === 'generating' || status === 'polling'
+              ? 'bg-muted text-muted-foreground cursor-not-allowed'
+              : !avatarId.trim() || !scriptText.trim()
+              ? 'bg-muted text-muted-foreground cursor-not-allowed'
+              : 'bg-primary text-primary-foreground'
+          )}
+        >
+          {status === 'generating' ? <><Loader2 className="w-4 h-4 animate-spin" /> Sending to HeyGen...</>
+           : status === 'polling' ? <><Loader2 className="w-4 h-4 animate-spin" /> Waiting for video...</>
+           : <><Film className="w-4 h-4" /> Generate Avatar Video</>}
+        </button>
+      </div>
     </div>
   );
 }
